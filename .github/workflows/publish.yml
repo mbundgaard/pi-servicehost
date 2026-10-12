@@ -49,7 +49,6 @@ jobs:
   publish:
     needs: validate
     runs-on: ubuntu-latest
-    environment: npm
     permissions:
       contents: read
       id-token: write
@@ -78,4 +77,4 @@ jobs:
         shell: bash
         run: |
           env -u NODE_AUTH_TOKEN -u NPM_TOKEN NPM_CONFIG_USERCONFIG=/dev/null \
-            npm publish artifacts/comput-pi-servicehost-*.tgz --access public --provenance --ignore-scripts --registry=https://registry.npmjs.org
+            npm publish ./artifacts/comput-pi-servicehost-*.tgz --access public --provenance --ignore-scripts --registry=https://registry.npmjs.org
