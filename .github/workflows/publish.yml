@@ -1,0 +1,81 @@
+name: Publish npm package (not a dry run)
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: 'ACTUALLY publish the selected vVERSION tag to npm: type publish'
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: npm-publish
+  cancel-in-progress: false
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22.19.0', '24']
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node }}
+          package-manager-cache: false
+      - name: Require matching version tag and explicit manual intent
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const p = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          if (p.name !== '@comput/pi-servicehost' || !/^\d+\.\d+\.\d+$/.test(p.version)) throw Error('Unexpected package/version');
+          if (p.repository?.url !== `git+https://github.com/${process.env.GITHUB_REPOSITORY}.git`) throw Error('Repository metadata must match the publishing repository');
+          const tag = `v${p.version}`;
+          if (process.env.GITHUB_REF !== `refs/tags/${tag}`) throw Error(`Select the ${tag} tag, not a branch`);
+          if (process.env.EVENT_NAME === 'release' && process.env.RELEASE_TAG !== tag) throw Error('Release tag mismatch');
+          if (process.env.EVENT_NAME === 'workflow_dispatch' && process.env.CONFIRMATION !== 'publish') throw Error('Manual dispatch publishes; confirmation required');
+          NODE
+      - run: npm ci --ignore-scripts
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run check:package
+  publish:
+    needs: validate
+    runs-on: ubuntu-latest
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Install npm with Trusted Publishing support
+        run: npm install --global npm@11
+      - run: npm ci --ignore-scripts
+      # Never rely on prepack when publishing with scripts disabled.
+      - run: npm run check:package
+      - name: Build final artifact manifest
+        run: |
+          mkdir -p artifacts
+          npm pack --ignore-scripts --json --pack-destination artifacts > artifacts/manifest.json
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const [pack] = JSON.parse(fs.readFileSync('artifacts/manifest.json', 'utf8'));
+          if (pack.filename !== 'comput-pi-servicehost-' + JSON.parse(fs.readFileSync('package.json')).version + '.tgz') throw Error('Unexpected artifact');
+          console.log(JSON.stringify(pack, null, 2));
+          NODE
+      - name: Publish tarball through npm OIDC with provenance (no token fallback)
+        shell: bash
+        run: |
+          env -u NODE_AUTH_TOKEN -u NPM_TOKEN NPM_CONFIG_USERCONFIG=/dev/null \
+            npm publish artifacts/comput-pi-servicehost-*.tgz --access public --provenance --ignore-scripts --registry=https://registry.npmjs.org

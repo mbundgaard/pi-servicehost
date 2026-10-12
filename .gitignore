@@ -1,0 +1,10 @@
+node_modules/
+dist/
+*.tgz
+.pi/
+references/ServiceHost/
+.servicehost/
+logs/
+ServiceHost.credentials.json
+.env
+.env.*

@@ -1,0 +1,23 @@
+name: Linux validation
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  test:
+    name: Linux / Node ${{ matrix.node }}
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22.19.0', '24']
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node }}
+          package-manager-cache: false
+      - run: npm ci --ignore-scripts
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run check:package
+# Windows native execution/lifecycle validation is deferred, not a Linux release gate.

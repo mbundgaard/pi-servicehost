@@ -1,0 +1,14 @@
+{
+  "apiPort": 9500,
+  "logDirectory": "./logs",
+  "services": [
+    {
+      "name": "api",
+      "command": "node",
+      "args": ["./server.js"],
+      "workingDirectory": "./api",
+      "port": 5000,
+      "environment": { "PORT": "5000", "API_KEY": "${credential:apiKey}" }
+    }
+  ]
+}
