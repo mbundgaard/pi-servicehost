@@ -1,31 +1,36 @@
 # Validation record
 
-Local environment: Linux, Node v22.23.3, npm 10.9.9. Linux-first 0.1.0 release-preparation validation (2026-10-12):
+## Feedback increment (local Linux, 2026-10-13)
 
-- `npm ci --ignore-scripts` — passed; audit reported zero vulnerabilities in the four-package development tree. No runtime dependencies.
+Environment: Node v22.23.3, npm 10.9.9. This is an Unreleased source increment, not a new npm publication. The owner separately verified installation and a disposable Linux smoke test of the **registry 0.1.0** package. Trusted Publisher configuration is owner-reported; no remote CI/OIDC/provenance run was inspected or claimed here.
+
+Final local suite results: Tests use disposable projects and cooperative/self-expiring fixture processes; no real services, live Herdr manipulation, Pi SDK, nested workers, external messaging, account changes, commits, pushes or publication.
+
 - `npm run typecheck` — passed strict TypeScript checking.
-- `npm test` — 19 tests: 18 passed, 1 Windows-native integration skipped; zero failures on the final run.
-- `npm run check:package` — build, **2/2 package tests**, and allowlisted pack dry run passed. Manifest assertions require exactly 17 files, including all eight compiled JS modules and no source, tests, references, secrets or runtime state. Lockfile identity/version/license and metadata consistency are checked.
-- Actual tarball installation uses `--ignore-scripts` in a disposable prefix outside the checkout. Tests invoke the installed executable bin (not just the JS path) and exercise Linux up/status/start/logs/reconnect/stop/shutdown, including the packaged Linux helper.
-- Both workflow YAML files parsed and all embedded shell steps passed `bash -n`. Six local publication-guard cases passed: matching release/manual tags accepted; branch, mismatched release tag, missing manual confirmation and mismatched repository rejected. GitHub Actions/OIDC/provenance were **not** executed locally; remote Node 22.19/24 gate results remain pending.
-- Final artifact built with scripts disabled after an explicit build and inspected with `tar -tzf`: 17 allowlisted files. Release preparation did not publish it.
+- `npm test` — passed: 24 tests, 23 passed, 1 Windows-native integration skipped, 0 failures.
+- `npm run check:package` — passed build, 2/2 package tests, and exact allowlisted pack dry run. The manifest contains 20 files, including all eleven built JS modules. Source, tests, feedback, legacy references, secrets and runtime state are excluded.
+- Package tests create an actual tarball in a temporary directory and install it with `--ignore-scripts`, invoking its installed executable bin outside the checkout: help/up/status/start/logs/watch/follow/log-inventory/reconnect/stop/shutdown. The installed live watch, follow, default prompt and `panel --live` also run under a disposable PTY using Linux util-linux `script` (required for this Linux test). Quitting leaves the same fixture PID running. Consecutive polls neither repeat unchanged status nor reread an unchanged log chunk. This is terminal protocol/output evidence, not a human visual review or evidence for every terminal emulator.
 
-An earlier run caught a concurrent shared-checkout repository metadata change (`comput-sh` to `mbundgaard`) through the package assertion. The external edit was preserved, docs aligned, and assertions now check repository URL shape plus homepage/issues consistency; owner confirmation of the target remains on the release checklist.
+- `git diff --check` — passed.
 
-## Linux evidence
+### New coverage
 
-Disposable parent → child → grandchild fixtures validate live process-group drain (procfs check after stop), stop/restart with and without natural parent exit, portless ownership, shutdown fencing until explicit release, historical stdout/stderr preservation, and TERM-resistant descendants retaining leases on a bounded timeout. A lost-anchor test kills only its retained fixture handle, then verifies stop fails closed and the service continues writing: there is no saved-PGID fallback. A disposable runtime SIGKILL test verifies IPC disconnect does not kill services, direct log writes continue, a replacement Manager cannot stop or relaunch from the stale lease, and output files remain unchanged in number. An explicit detached/setsid descendant test demonstrates the scope limitation: it survives group stop and continues logging until its fixture timer exits.
+Readiness: strict config bounds/closed endpoint grammar; expected response; mismatched status retries; refusal to follow redirects; oversized headers; hung endpoint/startup timeout; success without collecting a body; explicit cancellation; stop/restart launch-generation separation; natural exit cancellation with known exit code. Timeout leaves process/ownership intact. Status exposes a generic observation only, not response text or credentials.
 
-Existing tests still cover authenticated project handshake, origin rejection, conflicting runtime port, listener identity, identity-mismatch adoption rejection, observe-only adoption, bounded log reads, status not exposing configured credentials, raw child-log caveat, reconnection without truncation, stale leases, failed-launch cleanup, detached runtime reconnection, relative config paths, duplicate validation and package exclusions. No external listener is signaled by port.
+Logs and views: API and Manager follow cursors, empty follow after catch-up, bounded chunk advancement, invalid cursors and byte limits, reset after restart or cursor beyond file size, escaped ANSI/C1/bidi output, narrow terminal wrapping without losing fields, one-shot non-TTY commands, installed PTY quit preserving services. Inventory covers bounds, active/historical retained files, symlink/directory/hard-link/unrelated-name exclusions, and byte-for-byte nonmutation. It does not prove inactivity or authorize deletion.
 
-## Release-critical review
+### Existing regression coverage retained
 
-Reviewed launch ownership, group stop/recovery, loopback authentication, log/credential exposure, artifact exclusions and release authentication against the documented scope. No new Linux release-critical runtime defect was identified in this bounded review; this is not a full security audit. No lifecycle/UI source changes were made. Known safety limits below remain prominent in README rather than being hidden by packaging. External publication blockers and first-package OIDC bootstrap uncertainty are in [release.md](release.md). MIT was selected to match sibling packages, pending owner confirmation.
+Disposable parent → child → grandchild fixtures validate cooperative Linux process-group drain, stop/restart with and without natural parent exit, portless ownership, shutdown fencing, old stdout/stderr preservation, and TERM-resistant descendants retaining leases on bounded timeout. Lost-anchor stop fails closed; runtime loss leaves survivors logging and a new Manager unable to signal or relaunch from a lease. An escaped setsid descendant explicitly demonstrates survival beyond group stop.
 
-## Limits, not claims
+Authentication/project handshake, origin rejection, conflicting runtime port, listener identity, adoption identity mismatch, observe-only adoption, bounded log reads, status credential withholding, raw log caveat, reconnection, stale leases, failed-launch cleanup, config-relative paths, duplicate validation, Windows pure planner and native argv regression tests remain in the suite.
 
-Linux group signaling uses the live anchor's own `kill(0)`, so PID/PGID reuse is structurally avoided rather than stress-tested by forcing kernel ID reuse. Drain uses two non-atomic procfs scans, excluding zombies; this is cooperative process-group supervision, not cgroup containment or proof against adversarial fork/exit churn. Escaped descendants are outside scope. Procfs must expose group members in the same PID namespace; restricted/hidden procfs and hostile same-user processes are not supported security boundaries. No reboot/crash cleanup, zombie-reaping, power-loss durability, malicious filesystem-race, or production-readiness guarantee is made.
+## Historical evidence and limits
 
-Windows pure planner/native argv tests run locally; `.cmd`/`.bat`/PATH/direct-log/wrapper-lease integration remains skipped without Windows. PATH probes found no `cl.exe`, `clang-cl`, MinGW C++ compiler, Wine or CMake. Consequently no Job Object binary/source implementation is shipped or claimed tested: the reviewed-next-step protocol, suspended assignment/handle design, source/build artifact strategy and exact blockers are in `docs/windows-lifecycle.md`. Native Windows jobs, ACLs, nested jobs, console closure and failure injection still need native CI/manual validation. Existing Windows paths remain direct-child-only or conservatively fenced batch-wrapper control.
+The 2026-10-12 release-preparation suite had 19 tests (18 passed, 1 Windows-native skipped), and an eight-module/17-file package. That earlier run also checked workflow YAML/shell syntax and local publication-guard cases; those checks are not remote Actions execution and were not re-run for this runtime increment. No workflow changes are part of this increment.
 
-All fixtures were temporary and self-expiring where survivors were intentional. No real services, Herdr, siblings/legacy projects, external messaging, commits, pushes or publishing were used. Package tests install only their locally generated artifact into a temporary prefix. Remote CI and visual terminal behavior were not exercised.
+Linux group signaling uses the live anchor's own `kill(0)`, not saved numeric PID/PGID authority. Drain uses non-atomic procfs scans, excluding zombies; escaping or hostile processes are not contained. No crash/reboot cleanup, zombie-reaping, malicious filesystem-race, power-loss durability or production-supervision guarantee is made. Trusted project directories and same PID/network namespace/readable procfs remain prerequisites.
+
+Readiness is a bounded startup observation, not continuous health, process identity attestation, or a trigger for lifecycle actions. Fast restarts can skip historical log output and byte boundaries can split UTF-8. Inventory is bounded filesystem-order reporting, not an exhaustive disk usage audit; destructive retention is deferred because even stopped processes may have escaped descriptor holders.
+
+Windows native batch/PATH/log/lease execution, ACLs, console closure and Job Objects remain deferred; Linux tests cannot certify them. See [Windows ownership design](windows-lifecycle.md). Remote Linux Node 22.19/24 CI, publication provenance and human terminal visual review are not established by this local record.

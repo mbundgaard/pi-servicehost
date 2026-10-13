@@ -4,9 +4,9 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { auth } from './runtime.js';
 import { SafeError, type Config } from './config.js';
-export async function request(c:Config,body:unknown) {
+export async function request(c:Config,body:unknown,signal?:AbortSignal) {
   const token=await auth(c);
-  const r=await fetch(`http://127.0.0.1:${c.apiPort}/v1`,{method:'POST',headers:{'content-type':'application/json',authorization:`Bearer ${token}`,'x-servicehost-project':c.id},body:JSON.stringify(body),signal:AbortSignal.timeout(20000),redirect:'error'});
+  const r=await fetch(`http://127.0.0.1:${c.apiPort}/v1`,{method:'POST',headers:{'content-type':'application/json',authorization:`Bearer ${token}`,'x-servicehost-project':c.id},body:JSON.stringify(body),signal:signal?AbortSignal.any([signal,AbortSignal.timeout(20000)]):AbortSignal.timeout(20000),redirect:'error'});
   const data=await r.json() as any;
   if(!r.ok) throw new SafeError(typeof data.error==='string'?data.error:'Runtime request failed');
   if((body as any).action==='ping' && (data.project!==c.id || data.protocol!==1)) throw new SafeError('Runtime identity mismatch');

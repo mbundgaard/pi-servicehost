@@ -6,6 +6,8 @@ import type { ChildProcess } from 'node:child_process';
 import { loadConfig, launchValues, demand, SafeError, type Config, type Service } from './config.js';
 import { identity, listeners, launch, isBatchChild, type Identity } from './platform.js';
 import { LinuxGroup } from './linux-group.js';
+import { Readiness } from './readiness.js';
+import { logInventory } from './logs.js';
 
 export async function auth(c:Config):Promise<string> {
   await mkdir(c.stateDirectory,{recursive:true,mode:0o700});
@@ -17,7 +19,7 @@ export async function auth(c:Config):Promise<string> {
   for(let i=0;i<20;i++) { const token=await readFile(file,'utf8'); if(/^[a-f0-9]{64}$/.test(token)) return token; await new Promise(r=>setTimeout(r,50)); }
   throw new SafeError('Invalid token file');
 }
-interface RecordState { group?:LinuxGroup; child?:ChildProcess; adopted?:Identity; running:boolean; stdout?:string; stderr?:string; exitCode?:number|null; stopRequested?:boolean }
+interface RecordState { lastExitCode?:number|null; readiness?:Readiness; launchId?:string; group?:LinuxGroup; child?:ChildProcess; adopted?:Identity; running:boolean; stdout?:string; stderr?:string; exitCode?:number|null; stopRequested?:boolean }
 export class Manager {
   private states=new Map<string,RecordState>();
   constructor(readonly config:Config) {}
@@ -27,7 +29,7 @@ export class Manager {
     return Promise.all(this.config.services.map(async s=> {
       const r=this.states.get(s.name); let stale=false; try { await lstat(this.lease(s.name)); stale=!r?.running; } catch(e:any) { if(e.code!=='ENOENT') throw e; }
       let adoptionValid=false; if(r?.adopted) { try { adoptionValid=(await identity(r.adopted.pid)).identity===r.adopted.identity; } catch {} }
-      return {name:s.name,port:s.port,scope:r?.group?'linux-process-group':undefined,ownership:r?.group?(r.group.released?'released':r.group.anchor.connected?'held':'lost'):undefined,state:r?.running?'running':r?.adopted?(adoptionValid?'observed':'observation-ended'):stale?'blocked-stale-lease':'stopped',pid:r?.running?(r.group?.pid??r.child?.pid):r?.adopted?.pid,output:r?.stdout?'available':'unavailable',exitCode:r?.exitCode};
+      return {name:s.name,port:s.port,readiness:s.readiness?(r?.readiness?.state??'inactive'):'not-configured',scope:r?.group?'linux-process-group':undefined,ownership:r?.group?(r.group.released?'released':r.group.anchor.connected?'held':'lost'):undefined,state:r?.running?'running':r?.adopted?(adoptionValid?'observed':'observation-ended'):stale?'blocked-stale-lease':'stopped',pid:r?.running?(r.group?.pid??r.child?.pid):r?.adopted?.pid,output:r?.stdout?'available':'unavailable',exitCode:r?.exitCode,lastExitCode:r?.lastExitCode};
     }));
   }
   async discover(name:string) { const s=this.service(name); demand(s.port,'Service has no configured port'); return listeners(s.port); }
@@ -52,22 +54,25 @@ export class Manager {
       await lease.writeFile(JSON.stringify({project:this.config.id,name,launchId,state:'launching'}));
       out=await open(stdout,'wx',0o600); err=await open(stderr,'wx',0o600);
       if(process.platform==='linux') {
-        const record:RecordState={running:true,stdout,stderr};this.states.set(name,record);
-        const group=new LinuxGroup(s.command,values.args,s.workingDirectory,values.env,out.fd,err.fd,code=>{record.running=false;record.exitCode=code;});
+        const record:RecordState={running:true,stdout,stderr,launchId,lastExitCode:previous?.lastExitCode};this.states.set(name,record);
+        const group=new LinuxGroup(s.command,values.args,s.workingDirectory,values.env,out.fd,err.fd,code=>{record.running=false;record.exitCode=code;record.lastExitCode=code;record.readiness?.cancel();});
         record.group=group;child=group.anchor;record.child=child;
+        child.once('close',()=>record.readiness?.cancel());
         try {await group.ready;} catch(e) {
           // Even a failed target launch must drain the anchor before lease release.
           await group.stop();await unlink(this.lease(name));this.states.delete(name);throw e;
         }
         await lease.truncate(0);await lease.write(JSON.stringify({project:this.config.id,name,launchId,pid:group.pid,pgid:child.pid,state:'launched',scope:'linux-process-group'}),0,'utf8');
+        if(s.readiness && record.running && group.anchor.connected && child.exitCode===null && child.signalCode===null)record.readiness=new Readiness(s.readiness);
         return {started:true,pid:group.pid,scope:'linux-process-group'};
       }
       child=launch(s.command,values.args,{cwd:s.workingDirectory,env:values.env,stdio:['ignore',out.fd,err.fd]});
-      const record:RecordState={child,running:true,stdout,stderr}; this.states.set(name,record);
+      const record:RecordState={child,running:true,stdout,stderr,launchId,lastExitCode:previous?.lastExitCode}; this.states.set(name,record);
       // close confirms the direct child ended, NOT its descendants. Logs are never reused.
-      child.once('close',code=>{ record.running=false; record.exitCode=code; });
+      child.once('close',code=>{ record.running=false; record.exitCode=code; record.lastExitCode=code; record.readiness?.cancel(); });
       await new Promise<void>((res,rej)=>{child!.once('spawn',res); child!.once('error',()=>rej(new SafeError('Service launch failed; check executable and directory')));});
       await lease.truncate(0); await lease.write(JSON.stringify({project:this.config.id,name,launchId,pid:child.pid,state:'launched',scope:isBatchChild(child)?'batch-wrapper-only':'direct-child-only'}),0,'utf8');
+      if(s.readiness && record.running)record.readiness=new Readiness(s.readiness);
       return {started:true,pid:child.pid};
     } catch(e) {
       // A successful spawn followed by metadata failure must retain the lease.
@@ -78,6 +83,7 @@ export class Manager {
   async stop(name:string) {
     this.service(name); const r=this.states.get(name);
     demand(r && !r.adopted,'Only a direct child launched by this runtime can be stopped');
+    r.readiness?.cancel();
     if(r.group) {await r.group.stop();r.running=false;}
     else if(r.running) {
       const child=r.child!;
@@ -100,6 +106,19 @@ export class Manager {
     this.service(name); demand(stream==='stdout'||stream==='stderr','Invalid log stream'); demand(Number.isInteger(bytes)&&bytes>=1&&bytes<=65536,'Invalid log byte limit');
     const r=this.states.get(name); const path=stream==='stdout'?r?.stdout:r?.stderr; demand(path && !r?.adopted,'Output unavailable for this runtime');
     const f=await open(path,'r'); try { const st=await f.stat(); const size=Math.min(st.size,bytes); const b=Buffer.alloc(size); await f.read(b,0,size,st.size-size); return {text:b.toString('utf8'),bytes:size}; } finally {await f.close();}
+  }
+  async follow(name:string,stream:string,bytes:number,cursor?:{launchId:string;offset:number}) {
+    this.service(name);demand(stream==='stdout'||stream==='stderr','Invalid log stream');
+    demand(Number.isInteger(bytes)&&bytes>=1&&bytes<=65536,'Invalid log byte limit');
+    demand(cursor===undefined || (cursor && typeof cursor==='object' && !Array.isArray(cursor) && typeof cursor.launchId==='string' && /^[a-f0-9]{24}$/.test(cursor.launchId) && Number.isSafeInteger(cursor.offset) && cursor.offset>=0),'Invalid log cursor');
+    const r=this.states.get(name);const path=stream==='stdout'?r?.stdout:r?.stderr;
+    demand(path && r?.launchId && !r.adopted,'Output unavailable for this runtime');
+    const f=await open(path,'r');try {
+      const st=await f.stat();const reset=!!cursor && (cursor.launchId!==r.launchId || cursor.offset>st.size);
+      const offset=!cursor||reset?Math.max(0,st.size-bytes):cursor.offset;
+      const b=Buffer.alloc(Math.min(bytes,st.size-offset));const read=await f.read(b,0,b.length,offset);
+      return {text:b.subarray(0,read.bytesRead).toString('utf8'),bytes:read.bytesRead,reset,cursor:{launchId:r.launchId,offset:offset+read.bytesRead}};
+    }finally{await f.close();}
   }
   canShutdown() { return ![...this.states.values()].some(r=>r.running || (r.group && !r.group.released)); }
 }
@@ -124,6 +143,7 @@ export async function serve(path:string) {
         if(b.action==='ping') {reply(200,{project:c.id,protocol:1});return;}
         if(b.action==='status') {reply(200,{project:c.id,services:await manager.status()});return;}
         if(b.action==='shutdown') {demand(manager.canShutdown(),'Managed children still running');reply(200,{stopped:true});server.close();return;}
+        if(b.action==='log-inventory') {reply(200,await logInventory(c,b.limit??100));return;}
         demand(typeof b.name==='string' && b.name.length<=64,'Invalid service name');
         let result;
         switch(b.action) {
@@ -132,6 +152,7 @@ export async function serve(path:string) {
           case 'restart':result=await manager.restart(b.name);break;
           case 'discover':result=await manager.discover(b.name);break;
           case 'adopt':result=await manager.adopt(b.name,b.expected);break;
+          case 'log-follow':result=await manager.follow(b.name,b.stream??'stdout',b.bytes??16384,b.cursor);break;
           case 'logs':result=await manager.logs(b.name,b.stream??'stdout',b.bytes??16384);break;
           default:throw new SafeError('Unknown action');
         }

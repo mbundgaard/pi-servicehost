@@ -1,24 +1,59 @@
 {
   "name": "@comput/pi-servicehost",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Linux-first standalone project-local service runtime and terminal prompt panel",
   "license": "MIT",
   "author": "Martin Bundgaard",
   "homepage": "https://github.com/mbundgaard/pi-servicehost#readme",
-  "bugs": { "url": "https://github.com/mbundgaard/pi-servicehost/issues" },
-  "repository": { "type": "git", "url": "git+https://github.com/mbundgaard/pi-servicehost.git" },
-  "keywords": ["service-runner", "cli", "linux", "process-management"],
-  "os": ["linux", "win32"],
-  "type": "module",
-  "bin": { "pi-servicehost": "dist/cli.js" },
-  "files": [
-    "dist/cli.js", "dist/client.js", "dist/config.js", "dist/runtime.js",
-    "dist/platform.js", "dist/linux-group.js", "dist/linux-group-helper.js", "dist/windows-launch.js",
-    "README.md", "LICENSE", "CHANGELOG.md", "ServiceHost.example.json",
-    "docs/design.md", "docs/validation.md", "docs/windows-lifecycle.md", "docs/release.md"
+  "bugs": {
+    "url": "https://github.com/mbundgaard/pi-servicehost/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mbundgaard/pi-servicehost.git"
+  },
+  "keywords": [
+    "service-runner",
+    "cli",
+    "linux",
+    "process-management"
   ],
-  "engines": { "node": ">=22.19.0" },
-  "publishConfig": { "access": "public", "provenance": true },
+  "os": [
+    "linux",
+    "win32"
+  ],
+  "type": "module",
+  "bin": {
+    "pi-servicehost": "dist/cli.js"
+  },
+  "files": [
+    "dist/cli.js",
+    "dist/client.js",
+    "dist/config.js",
+    "dist/runtime.js",
+    "dist/readiness.js",
+    "dist/logs.js",
+    "dist/watch.js",
+    "dist/platform.js",
+    "dist/linux-group.js",
+    "dist/linux-group-helper.js",
+    "dist/windows-launch.js",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md",
+    "ServiceHost.example.json",
+    "docs/design.md",
+    "docs/validation.md",
+    "docs/windows-lifecycle.md",
+    "docs/release.md"
+  ],
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "scripts": {
     "build": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\" && tsc",
     "typecheck": "tsc --noEmit",
@@ -26,5 +61,8 @@
     "prepack": "npm run build",
     "check:package": "npm run build && node --test tests/package.test.mjs && npm pack --dry-run --ignore-scripts"
   },
-  "devDependencies": { "@types/node": "^22.0.0", "typescript": "^5.9.3" }
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.9.3"
+  }
 }

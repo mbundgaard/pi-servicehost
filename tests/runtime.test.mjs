@@ -33,6 +33,11 @@ test('managed lifecycle, identity, credentials, logs, leases, auth and port conf
   const status=await request(c,{action:'status'});assert.equal(status.services[0].state,'running');assert.ok(!JSON.stringify(status).includes('private-value'));
   assert.match((await request(c,{action:'logs',name:'fixture'})).text,/READY private-value/); // arbitrary child logs are NOT redacted
   assert.match((await request(c,{action:'logs',name:'fixture',stream:'stderr'})).text,/stderr-line/);
+  const followed=await request(c,{action:'log-follow',name:'fixture'});assert.match(followed.text,/READY private-value/);
+  assert.equal((await request(c,{action:'log-follow',name:'fixture',cursor:followed.cursor})).text,'');
+  await assert.rejects(request(c,{action:'log-follow',name:'fixture',cursor:{launchId:'bad',offset:0}}),/cursor/);
+  const inventory=await request(c,{action:'log-inventory',limit:100});assert.equal(inventory.entries.length,2);assert.ok(inventory.entries.every(e=>e.disposition==='retained-inactivity-unproven'));
+  await assert.rejects(request(c,{action:'log-inventory',limit:1001}),/limit/);
   await assert.rejects(request(c,{action:'logs',name:'fixture',bytes:65537}),/Invalid/);
   await assert.rejects(request(c,{action:'logs',name:'../token'}),/Unknown service/);
   await assert.rejects(request(c,{action:'shutdown'}),/still running/);

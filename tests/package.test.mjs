@@ -1,18 +1,28 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {execFileSync} from 'node:child_process';
+import {execFileSync,spawn} from 'node:child_process';
 import {readFileSync,writeFileSync,mkdtempSync,rmSync,existsSync} from 'node:fs';
 import net from 'node:net';
 import {once} from 'node:events';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
+async function ttyView(bin,args,cwd,marker,wait=0){
+ const quote=s=>"'"+s.replaceAll("'","'\\''")+"'";
+ const child=spawn('script',['-q','-e','-c',[bin,...args].map(quote).join(' '),'/dev/null'],{cwd,stdio:['pipe','pipe','pipe']});
+ let output='';let sent=false;
+ await new Promise((resolve,reject)=>{
+  const timer=setTimeout(()=>{child.kill('SIGTERM');reject(Error('PTY view timeout'));},10000);
+  child.on('error',e=>{clearTimeout(timer);reject(e);});child.stdout.on('data',b=>{output+=b;if(!sent&&output.includes(marker)){sent=true;setTimeout(()=>child.stdin.write('q\n'),wait);}});
+  child.once('close',code=>{clearTimeout(timer);code===0&&sent?resolve():reject(Error('PTY view failed'));});
+ });return output;
+}
 test('package is standalone compiled JS and excludes legacy, credentials and runtime',()=>{
  assert.ok(process.env.npm_execpath,'Run package tests through npm scripts');
  const output=execFileSync(process.execPath,[process.env.npm_execpath,'pack','--dry-run','--ignore-scripts','--json'],{encoding:'utf8'});
  const [pkg]=JSON.parse(output);const files=pkg.files.map(f=>f.path);
  const expected=['package.json','README.md','LICENSE','CHANGELOG.md','ServiceHost.example.json',
   'docs/design.md','docs/validation.md','docs/windows-lifecycle.md','docs/release.md',
-  ...['cli','client','config','runtime','platform','linux-group','linux-group-helper','windows-launch'].map(n=>`dist/${n}.js`)];
+  ...['cli','client','config','runtime','readiness','logs','watch','platform','linux-group','linux-group-helper','windows-launch'].map(n=>`dist/${n}.js`)];
  assert.deepEqual(files.sort(),expected.sort(),'Only reviewed files may ship; no references, source, tests, secrets or state');
  const p=JSON.parse(readFileSync('package.json','utf8'));assert.equal(p.bin['pi-servicehost'],'dist/cli.js');assert.ok(!p.dependencies&&!p.peerDependencies&&!p.pi);
  assert.equal(p.name,'@comput/pi-servicehost');assert.equal(p.license,'MIT');
@@ -44,6 +54,17 @@ test('packed artifact installs without scripts and CLI lifecycle runs outside ch
    assert.equal(cli('start','fixture').scope,'linux-process-group');
    for(let i=0;i<50;i++){if(cli('logs','fixture').text.includes('tarball-ready'))break;await new Promise(r=>setTimeout(r,20));}
    assert.match(cli('logs','fixture').text,/tarball-ready/);
+   const livePid=cli('status').services[0].pid;
+   // util-linux script supplies a real disposable PTY; no Herdr or real service.
+   const live=await ttyView(bin,['watch'],dir,'ready:"not-configured"',1200);assert.match(live,/exit:\?/);assert.equal(live.match(/ready:"not-configured"/g).length,1);
+   const followed=await ttyView(bin,['follow','fixture'],dir,'tarball-ready',1200);assert.match(followed,/may contain secrets/);assert.equal(followed.match(/tarball-ready/g).length,1);
+   await ttyView(bin,['panel','--live'],dir,'ready:"not-configured"');
+   const panel=await ttyView(bin,['panel'],dir,'servicehost>');assert.match(panel,/Closing this panel leaves services running/);
+   assert.equal(cli('status').services[0].pid,livePid);
+   assert.equal(cli('watch').services[0].state,'running');
+   assert.match(cli('follow','fixture').text,/tarball-ready/);
+   assert.equal(cli('log-inventory','10').dryRun,true);
+   assert.equal(cli('log-inventory','10').entries.length,2);
    assert.equal(cli('up').existing,true);
    assert.equal(cli('stop','fixture').stopped,true);
    assert.equal(cli('shutdown').stopped,true);cli=undefined;
