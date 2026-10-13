@@ -1,6 +1,20 @@
 # Validation record
 
-## Feedback increment (local Linux, 2026-10-13)
+## Interactive panel increment (local Linux, 2026-10-13; Unreleased)
+
+- `npm run typecheck` passed.
+- `npm test` passed: 33 tests, 32 passed, one Windows-native test skipped, zero failures.
+- `npm run check:package` passed the installed-tarball test and exact allowlist dry run (22 files / twelve JS modules). Tarball installation uses `--ignore-scripts` outside the checkout, including the new default panel and retained prompt/ledger. Ctrl+L leaves fixture logs unchanged; quitting preserves its PID.
+- Renderer tests verify exact cell widths/heights at 100×28, 80×24, 50×16, 32×8 and tiny sizes, including info, selection viewport, empty/loading/unavailable/pending/disconnected states, ANSI/OSC/C1/bidi neutralization and CJK/combining/emoji fitting. Controller tests cover serial requests, pending guard, captured action target, selection persistence, ambiguous outcomes without automatic action retry, and clear-during-read cursor advancement.
+- A separate Python-standard-library PTY fixture uses an authenticated local mock API, **no child services**: actual function-key decoding, selection/list toggle, pending-action guard, Ctrl+L, resize, Ctrl+Q/q, SIGTERM and disconnect. It checks termios before/after plus cursor/alternate-screen restore sequences. Linux test prerequisites are `python3` and util-linux `script`; neither is a runtime/package dependency.
+- `artifacts/panel-preview.txt` is an actual renderer-generated plain-text review artifact; it is not shipped. Frames were read/reviewed at the listed sizes. The layout now matches the requested legacy structure: compact service rows, full-width rules, selected logs and shortcuts/version only; no title, column headings or persistent connection banner. Tests cover F2 in the footer, transient notice expiry and disconnected cached-output warnings. No emulator screenshot, live Herdr test, native Windows TUI evidence or owner visual approval is claimed.
+- No live services, Pi host dependency, external messaging, nested workers, version bump, commit, push or publication. Runtime API/lifecycle implementation and `FEEDBACK.md` are unchanged.
+
+Limitations: ANSI/Unicode rendering conventions vary by terminal; byte-cursor boundaries may split UTF-8, stream interleaving is not timestamp ordering, long log rows are clipped, and cache eviction reattaches to a bounded tail. F5 is omitted. Handled signals restore the terminal; SIGKILL/power loss cannot run cleanup. Disconnection retries reads only. Existing runtime ownership/lease restrictions are unchanged.
+
+## Previous feedback increment (local Linux, 2026-10-13)
+
+The following records the earlier pre-panel run, not the current package manifest.
 
 Environment: Node v22.23.3, npm 10.9.9. This is an Unreleased source increment, not a new npm publication. The owner separately verified installation and a disposable Linux smoke test of the **registry 0.1.0** package. Trusted Publisher configuration is owner-reported; no remote CI/OIDC/provenance run was inspected or claimed here.
 

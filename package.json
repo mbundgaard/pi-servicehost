@@ -1,7 +1,7 @@
 {
   "name": "@comput/pi-servicehost",
-  "version": "0.2.0",
-  "description": "Linux-first standalone project-local service runtime and terminal prompt panel",
+  "version": "0.3.0",
+  "description": "Linux-first standalone project-local service runtime and interactive terminal panel",
   "license": "MIT",
   "author": "Martin Bundgaard",
   "homepage": "https://github.com/mbundgaard/pi-servicehost#readme",
@@ -34,6 +34,7 @@
     "dist/readiness.js",
     "dist/logs.js",
     "dist/watch.js",
+    "dist/panel.js",
     "dist/platform.js",
     "dist/linux-group.js",
     "dist/linux-group-helper.js",
@@ -43,6 +44,7 @@
     "CHANGELOG.md",
     "ServiceHost.example.json",
     "docs/design.md",
+    "docs/panel-design.md",
     "docs/validation.md",
     "docs/windows-lifecycle.md",
     "docs/release.md"

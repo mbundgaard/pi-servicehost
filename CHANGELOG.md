@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.0
+
+- Replace default `panel` prompt with a selectable service list, live stdout/stderr pane, compact shortcuts and package version; retain `panel --prompt`, `panel --live`, watch/follow and JSON commands.
+- Add legacy-inspired F1/F2/F3/F4/F6 controls through the authenticated API, persistent selection, pending-action guard, read-only reconnect and UI-only quit. F5 batch actions remain omitted; Ctrl+L clears only the view.
+- Bound log rings/cursors, neutralize child terminal controls, adapt layouts to narrow terminals, and restore raw mode/cursor/alternate screen on exit and handled signals.
+- Add renderer preview artifacts, hostile-output/layout/controller tests and disposable authenticated PTY/installed-tarball coverage. No runtime dependencies or version bump.
+
 ## 0.2.0
 
 - Correct published/registry installation status and repository/owner-reported Trusted Publisher documentation without claiming remote CI or OIDC success.

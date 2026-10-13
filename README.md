@@ -1,8 +1,8 @@
 # ServiceHost
 
-A standalone, project-local service runner with a detached HTTP runtime and a simple terminal prompt panel. **Linux-first, not production supervision.** Start services explicitly, reconnect from another terminal, and leave them running when the panel closes. No Pi SDK, extension, or Herdr dependency.
+A standalone, project-local service runner with a detached HTTP runtime and an interactive terminal panel. **Linux-first, not production supervision.** Start services explicitly, reconnect from another terminal, and leave them running when the panel closes. No Pi SDK, extension, or Herdr dependency.
 
-**Release status:** `@comput/pi-servicehost@0.1.0` is published; installation from the npm registry and a disposable Linux lifecycle smoke test were verified by the owner. Repository: [mbundgaard/pi-servicehost](https://github.com/mbundgaard/pi-servicehost). The owner reports npm Trusted Publisher is configured; this does not establish a successful OIDC publish or remote CI run. See the [release checklist](docs/release.md). This is a standalone npm CLI, **not a `pi install` extension**. This checkout targets 0.2.0; readiness, live views and log inventory are new in 0.2.0 and are not in the immutable 0.1.0 tarball.
+**Linux-first standalone npm CLI**, not a `pi install` extension. Version **0.3.0** adds the compact, keyboard-driven service panel described below. Version 0.2.0 passed Linux CI and npm Trusted Publishing with provenance. Repository: [mbundgaard/pi-servicehost](https://github.com/mbundgaard/pi-servicehost). See [GitHub releases](https://github.com/mbundgaard/pi-servicehost/releases) for publication status and the [release checklist](docs/release.md) for the publishing process.
 
 ## Install and use
 
@@ -15,7 +15,7 @@ pi-servicehost --help
 
 Requires Node.js **22.19+** and npm. **Linux is the initial release target**, with readable procfs in the same PID/network namespace and cooperative foreground services. macOS and other platforms are unsupported. Windows code is included for experimentation only: native validation and lifecycle work are deferred, not Linux release gates. Windows discovery requires Windows PowerShell and `Get-NetTCPConnection`; no Windows tree-stop guarantee is provided.
 
-For the new features, install version 0.2.0 once available, or a locally built tarball (see Development below). A project-local registry installation also works: `npm install --save-dev @comput/pi-servicehost`, then `npx --no-install pi-servicehost --help`. No install scripts or runtime dependencies are needed.
+Use version 0.3.0 or newer for the interactive panel described below, or install a locally built tarball (see Development below). A project-local registry installation also works: `npm install --save-dev @comput/pi-servicehost`, then `npx --no-install pi-servicehost --help`. No install scripts or runtime dependencies are needed.
 
 Put `ServiceHost.json` in your project:
 
@@ -45,7 +45,23 @@ pi-servicehost stop api
 pi-servicehost shutdown
 ```
 
-The default panel remains an interactive command prompt. In this checkout, `panel --live` opens an optional compact status ledger; `watch` attaches to an existing runtime without launching it. `follow api [stdout|stderr]` follows that runtime's current launch logs. These are separate views, not full-screen panes; they do not steal focus or send cursor-control sequences. Live status prints only changed snapshots; logs are JSON-escaped and may contain secrets. Polling is sequential, at most once per second after each bounded request (20 seconds), with no overlap. `q` + Enter, EOF, Ctrl-C, or disconnect ends only the view. Narrow terminals wrap status rows without discarding fields. Non-TTY `watch`/`follow` return one JSON snapshot and exit; `panel` still requires a TTY. No view performs service lifecycle operations. `lastExitCode` retains the last observed exit across launches within this runtime only (`?` means unknown; `no-code` means exit without a numeric code, usually a signal). The existing `exitCode` remains scoped to the current launch. Type `quit` or close its terminal to leave the runtime and services running. You can launch it manually in a Herdr terminal. Nothing here configures or manipulates Herdr.
+### Interactive panel (0.3.0)
+
+`panel` starts/reconnects the runtime, then opens the compact legacy-style alternate-screen TUI: service rows such as `> api running :3000`, a full-width separator, selected-service stdout/stderr, then a full-width separator and shortcuts/package version. No title, column headings or persistent connection banner. No services auto-start. Names stay selected across polls; updates never move focus. F2 cycles services; arrows also select. F1 shows PID, readiness, ownership and last exit; these observations are **not control authority**. Colors follow the terminal palette (`NO_COLOR` disables styling); selection also has a `>` marker. Pending/disconnected warnings remain visible while relevant; action results/errors and clear confirmations appear temporarily in log-pane space (eight seconds), with the last message retained in F1.
+
+- **↑/↓ / F2:** select previous/next service (F2 wraps).
+- **F1 / Esc:** open/close info and full key help (↑/↓ scroll info).
+- **F3:** start/stop selected service; **F4:** restart via the existing authenticated API. Runtime ownership/lease checks still apply; observe-only and known lost-ownership services have no controls. One action at a time; ambiguous results are never retried automatically. Inspect status before deciding to retry.
+- **F6:** hide/show service list. **Ctrl+L:** clear selected log **view only**, never truncate/delete log files.
+- **q / Ctrl+Q / Ctrl+C:** quit UI only. Terminal modes/cursor/screen are restored on normal exit and handled termination signals. Services and runtime remain running; quitting does not undo an action already sent. F5 batch operations are deliberately omitted.
+
+The panel keeps at most 500 log rows per cached service (4096 characters per row, at most eight service caches; revisiting an evicted service reattaches to its tail), follows both streams with separate per-launch byte cursors, and reads at most 8 KiB per stream per poll. Initial attachment shows a bounded tail, not all history. Rows are clipped to terminal width; `logs`/`follow` remain available for inspection. Stream labels distinguish output; there is no reliable cross-stream chronological order. Complete ANSI sequences are stripped and residual controls escaped: child output cannot drive the terminal. Ordinary Unicode is preserved with grapheme-aware, approximate wide-character layout (terminal emoji/ambiguous-width conventions and split UTF-8 byte boundaries can differ). Logs may contain secrets.
+
+Reads and controls share one serial lane; reads refresh one second after each cycle, requests are bounded to 20 seconds. On disconnect, cached content is marked stale, controls are disabled and only reads reconnect automatically. Ctrl+L discards any in-flight old chunk while advancing its cursor; clearing before the first read discards that first tail. Under 32×8 the panel requests a resize. No mouse, scrollback browser, adoption or destructive maintenance is added.
+
+`panel --prompt` retains the command prompt; `panel --live` retains the line-oriented compact ledger. `watch` attaches without launching a runtime; `follow api [stdout|stderr]` follows one stream. These older views remain line-oriented and JSON-escape logs; `q` + Enter, EOF or Ctrl-C ends the view. Unlike the panel, their request errors exit. Non-TTY `watch`/`follow` return one JSON snapshot and exit; all panel modes require a TTY. Machine-readable commands/API are unchanged. `lastExitCode` persists across launches within this runtime (`?` unknown, `no-code` a nonnumeric exit); `exitCode` remains current-launch only.
+
+You can launch the panel manually in a Herdr terminal. Nothing configures or manipulates Herdr. See [panel design and evidence](docs/panel-design.md); visual approval and native Windows terminal testing are not claimed.
 
 Every command accepts `--config /path/to/ServiceHost.json`. Config directories and executable paths containing separators resolve relative to the config file; bare executable names use PATH. Native executable arguments are passed without shell expansion and are interpreted by the child relative to its working directory. Windows batch launches use the restricted grammar below. `port` is optional and is **TCP discovery**, not a readiness or health assertion. Services never auto-start.
 
@@ -131,8 +147,8 @@ npm run typecheck
 npm test
 npm run check:package
 npm pack
-# install the generated comput-pi-servicehost-0.2.0.tgz locally if desired
-npm install -g ./comput-pi-servicehost-0.2.0.tgz
+# install the generated comput-pi-servicehost-0.3.0.tgz locally if desired
+npm install -g ./comput-pi-servicehost-0.3.0.tgz
 ```
 
 `prepack` builds standalone ES modules into `dist/`. When disabling scripts, run `npm run build` **before** `npm pack --ignore-scripts`; the release workflow does this explicitly. The tarball contains built JS, selected docs, example config and MIT license, not source, tests, legacy references, credentials or runtime state. Tests install the actual tarball with scripts disabled into a disposable prefix and run its CLI outside the checkout.

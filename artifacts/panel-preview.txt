@@ -1,0 +1,159 @@
+Actual renderer output; ANSI styling and trailing padding omitted, not a screenshot.
+
+100 × 28
+> api running :3000
+  worker stopped
+  assets running :5173
+────────────────────────────────────────────────────────────────────────────────────────────────────
+out  Listening on 127.0.0.1:3000
+out  GET /ready 204  2ms
+out  仕事を開始 · café
+err  Optional cache is not configured
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────
+F1 info F2 next F3 stop F4 restart F6 list ^L clear q quit                                    v0.2.0
+
+80 × 24
+> api running :3000
+  worker stopped
+  assets running :5173
+────────────────────────────────────────────────────────────────────────────────
+out  Listening on 127.0.0.1:3000
+out  GET /ready 204  2ms
+out  仕事を開始 · café
+err  Optional cache is not configured
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────
+F1 info F2 next F3 stop F4 restart F6 list ^L clear q quit                v0.2.0
+
+50 × 16
+> api running :3000
+  worker stopped
+  assets running :5173
+──────────────────────────────────────────────────
+out  Listening on 127.0.0.1:3000
+out  GET /ready 204  2ms
+out  仕事を開始 · café
+err  Optional cache is not configured
+
+
+
+
+
+
+──────────────────────────────────────────────────
+F1 info F2 next F3 toggle F6 list q quit    v0.2.0
+
+32 × 8
+> api running :3000
+  worker stopped
+  1–2 of 3; F2 next
+────────────────────────────────
+out  仕事を開始 · café
+err  Optional cache is not conf…
+────────────────────────────────
+F1 info F2 next q quit    v0.2.0
+
+Pending action / 80 × 12
+> api running :3000
+  worker stopped
+  assets running :5173
+────────────────────────────────────────────────────────────────────────────────
+out  Listening on 127.0.0.1:3000
+out  GET /ready 204  2ms
+out  仕事を開始 · café
+err  Optional cache is not configured
+
+Pending: restart api · do not retry
+────────────────────────────────────────────────────────────────────────────────
+F1 info F2 next F3 stop F4 restart F6 list ^L clear q quit                v0.2.0
+
+Disconnected / 50 × 16
+> api running :3000
+  worker stopped
+  assets running :5173
+──────────────────────────────────────────────────
+out  Listening on 127.0.0.1:3000
+out  GET /ready 204  2ms
+out  仕事を開始 · café
+err  Optional cache is not configured
+
+
+
+
+
+Disconnected; cached output. Controls disabled.
+──────────────────────────────────────────────────
+F1 info F2 next F3 toggle F6 list q quit    v0.2.0
+
+Scrolled key help / 50 × 16
+F3 start/stop selected F4 restart selected
+F6 hide/show services Ctrl+L clear view only
+F1 / Esc close info q / Ctrl+Q quit UI only
+F5 batch operations are not enabled.
+Logs may contain secrets. No cross-stream time
+order.
+Closing this panel leaves services running.
+Message: Disconnected. Retrying reads; controls
+disabled.
+
+
+
+
+Disconnected; cached output. Controls disabled.
+──────────────────────────────────────────────────
+↑↓ scroll F1 back q quit                    v0.2.0
+
+Loading / 50 × 10
+  Loading services…
+──────────────────────────────────────────────────
+Waiting for service status…
+
+
+
+
+Connecting to runtime…
+──────────────────────────────────────────────────
+F1 info F2 next F3 toggle F6 list q quit    v0.2.0
+
+Empty / 50 × 10
+  No services configured. Edit ServiceHost.json.
+──────────────────────────────────────────────────
+Add a service to the project configuration.
+
+
+
+
+
+──────────────────────────────────────────────────
+F1 info F2 next F3 toggle F6 list q quit    v0.2.0

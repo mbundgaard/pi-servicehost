@@ -4,10 +4,11 @@ import { loadConfig, SafeError, demand } from './config.js';
 import { request, up } from './client.js';
 import { serve } from './runtime.js';
 import { watch, safeText } from './watch.js';
+import { panel } from './panel.js';
 
 const help=`pi-servicehost [command] [service] [--config path]
   up                         Start detached runtime (no services auto-start)
-  panel [--live]             Start/reconnect runtime; prompt or compact live status
+  panel [--prompt|--live]     Select services + live logs (prompt/ledger optional)
   watch                      Live compact status (non-TTY: one JSON snapshot)
   follow NAME [stdout|stderr] Live escaped logs; may contain secrets (non-TTY: one snapshot)
   log-inventory [LIMIT]       Dry-run only; bounded scan, no deletion
@@ -45,6 +46,7 @@ async function main() {
     demand(process.stdin.isTTY && process.stdout.isTTY,'Panel needs an interactive terminal');
     await up(c);
     if(args.includes('--live')){await watch(c);return;}
+    if(!args.includes('--prompt')){await panel(c);return;}
     const rl=createInterface({input:process.stdin,output:process.stdout});
     console.log('ServiceHost — type status, start NAME, stop NAME, logs NAME, discover NAME, or quit.\nClosing this panel leaves services running.');
     try {
