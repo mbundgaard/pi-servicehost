@@ -2,7 +2,7 @@
 
 ## Scope and decisions
 
-This is a standalone TypeScript npm CLI/runtime/terminal-panel vertical slice. The legacy .NET example informed configuration names and the Unreleased panel's service-list/log-pane/shortcut hierarchy; legacy files are untouched. Sibling @comput packages informed ESM naming, allowlisted packaging, scripts and Node baseline; no Pi SDK dependency or extension metadata is included.
+This is an independent TypeScript npm CLI/runtime/terminal panel with an Unreleased thin Pi extension and packaged skill. Legacy files remain untouched. Pi peers are host-provided; standalone files never import them. See [Pi integration](pi-integration.md) for tools, concurrency, privacy and explicit Herdr limitations.
 
 Modules:
 
@@ -21,7 +21,7 @@ Original line-oriented watch design (still used by `watch` and `panel --live`; t
 
 A launch lease is created before opening fresh output. It persists across runtime loss and natural exit, with no automatic stale-PID signaling. A live Windows child handle or Linux anchor IPC connection is the sole signal authority. The Linux anchor calls `kill(0, SIGTERM)` on its own pinned process group; no runtime-side PID/PGID check-then-kill race exists. Anchor loss fails closed with no numeric signaling fallback. The helper stays in the group after target exit, including portless launches. Stop performs two empty procfs membership scans (excluding anchor/zombies), reports drain, then releases the anchor and verifies its close. Five-second drain and bounded handshake/release deadlines retain leases on uncertainty. No SIGKILL escalation is implemented. Persisted numeric PIDs are diagnostic only. New filenames plus `wx` eliminate truncation altogether rather than guessing whether an old descendant still has a log open. A failed spawn with no PID removes its lease; successful spawn followed by bookkeeping failure retains it. Batch wrapper leases additionally remain after explicit stop, regardless of configured-port observations.
 
-Only the management socket decides whether a runtime can bind. Concurrent runtime launch attempts can yield a losing process, which exits without controlling any services. The launcher may confirm a winning compatible runtime rather than its own child. It does not claim singleton execution outside that socket or cross-config coordination when users change the management port. Project config/state must be trusted local files. Config is a startup snapshot.
+A canonical-config runtime guard now fences concurrent runtime starts and port changes; the management socket remains authoritative for bind conflicts. Guard acquisition shares a mutation lock with atomic config updates. Normal close releases the guard; crashes require independent manual reconciliation. The launcher may confirm a winning compatible runtime rather than its own child. Pre-integration binaries do not participate; stop them before migration. Project config/state must be trusted local files. Config is a startup snapshot. See the integration guide for filesystem and external-editor limitations.
 
 API requests are authenticated before parsing; body <=16 KiB, at most 32 connections and bounded queued operations, 15-second request/socket timeouts, 64-KiB maximum log read. Serial operations prevent concurrent start/stop on one runtime. A lost HTTP response can still mean the operation ran: inspect status rather than blindly retry. No generic error exposes raw spawn/config arguments. User-created child logs are intentionally not redacted.
 
@@ -43,4 +43,4 @@ API requests are authenticated before parsing; body <=16 KiB, at most 32 connect
 - Expand adversarial HTTP/backpressure/timeouts, symlink/ACL, malformed configuration and platform-failure tests.
 - Consider safe retention only after stronger inactivity proof exists. Current inventory deliberately never removes files. No automatic restart policy is supplied.
 - Follow the [release checklist](release.md) for the next version. 0.1.0 is published and registry-installed; Trusted Publisher configuration is owner-reported, not proof of a tested OIDC run. Linux remains the release target; Windows validation is deferred.
-- Pi/Herdr integrations are later work, after reading their current APIs/documentation; do not imply extension compatibility from npm name.
+- Pi config/host/service tools and skill are implemented in this Unreleased increment. Explicit Linux Herdr display creation/reconnect verifies recorded pane/terminal identity without claiming foreground-process readiness. Pending records fence duplicate launches; Windows remains deferred.

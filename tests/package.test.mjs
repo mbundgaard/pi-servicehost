@@ -6,6 +6,7 @@ import net from 'node:net';
 import {once} from 'node:events';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
+import {pathToFileURL} from 'node:url';
 async function ttyView(bin,args,cwd,marker,wait=0,keys='q\n'){
  const quote=s=>"'"+s.replaceAll("'","'\\''")+"'";
  const child=spawn('script',['-q','-e','-c',[bin,...args].map(quote).join(' '),'/dev/null'],{cwd,stdio:['pipe','pipe','pipe']});
@@ -21,10 +22,10 @@ test('package is standalone compiled JS and excludes legacy, credentials and run
  const output=execFileSync(process.execPath,[process.env.npm_execpath,'pack','--dry-run','--ignore-scripts','--json'],{encoding:'utf8'});
  const [pkg]=JSON.parse(output);const files=pkg.files.map(f=>f.path);
  const expected=['package.json','README.md','LICENSE','CHANGELOG.md','ServiceHost.example.json',
-  'docs/design.md','docs/panel-design.md','docs/validation.md','docs/windows-lifecycle.md','docs/release.md',
-  ...['cli','client','config','runtime','readiness','logs','watch','panel','platform','linux-group','linux-group-helper','windows-launch'].map(n=>`dist/${n}.js`)];
+  'docs/design.md','docs/panel-design.md','docs/validation.md','docs/windows-lifecycle.md','docs/release.md','docs/pi-integration.md','skills/servicehost/SKILL.md',
+  ...['cli','client','config','config-store','integration','herdr','extension','runtime','readiness','logs','watch','panel','platform','linux-group','linux-group-helper','windows-launch'].map(n=>`dist/${n}.js`)];
  assert.deepEqual(files.sort(),expected.sort(),'Only reviewed files may ship; no references, source, tests, secrets or state');
- const p=JSON.parse(readFileSync('package.json','utf8'));assert.equal(p.bin['pi-servicehost'],'dist/cli.js');assert.ok(!p.dependencies&&!p.peerDependencies&&!p.pi);
+ const p=JSON.parse(readFileSync('package.json','utf8'));assert.equal(p.bin['pi-servicehost'],'dist/cli.js');assert.ok(!p.dependencies);assert.deepEqual(p.pi,{extensions:['./dist/extension.js'],skills:['./skills']});assert.deepEqual(p.peerDependencies,{'@earendil-works/pi-coding-agent':'*',typebox:'*'});
  assert.equal(p.name,'@comput/pi-servicehost');assert.equal(p.license,'MIT');
  assert.match(p.repository.url,/^git\+https:\/\/github\.com\/[A-Za-z0-9_-]+\/pi-servicehost\.git$/);
  const repo=p.repository.url.replace(/^git\+/,'').replace(/\.git$/,'');
@@ -40,8 +41,23 @@ test('packed artifact installs without scripts and CLI lifecycle runs outside ch
  let cli;
  try {
   const [pack]=JSON.parse(run(['pack','--ignore-scripts','--json','--pack-destination',dir]));
-  run(['install','--prefix',join(dir,'install'),'--ignore-scripts','--no-audit','--no-fund',join(dir,pack.filename)]);
+  run(['install','--prefix',join(dir,'install'),'--ignore-scripts','--legacy-peer-deps','--omit=dev','--no-audit','--no-fund',join(dir,pack.filename)]);
   const installed=join(dir,'install','node_modules','@comput','pi-servicehost','dist','cli.js');assert.ok(existsSync(installed));
+  assert.equal(existsSync(join(dir,'install','node_modules','@earendil-works','pi-coding-agent')),false);
+  assert.equal(existsSync(join(dir,'install','node_modules','typebox')),false);
+  const packageRoot=join(dir,'install','node_modules','@comput','pi-servicehost');
+  assert.ok(existsSync(join(packageRoot,'dist','extension.js')));
+  assert.ok(existsSync(join(packageRoot,'skills','servicehost','SKILL.md')));
+  // Simulate Pi's host-provided peers for the installed extension; no real Pi/model.
+  const mockHost='data:text/javascript,export async function withFileMutationQueue(path,task){return task()}';
+  const probe=`import {registerHooks} from 'node:module';import {pathToFileURL} from 'node:url';
+    registerHooks({resolve(s,c,next){if(s==='@earendil-works/pi-coding-agent')return {url:${JSON.stringify(mockHost)},shortCircuit:true};if(s==='typebox')return {url:${JSON.stringify(import.meta.resolve('typebox'))},shortCircuit:true};return next(s,c)}});
+    const {default:register}=await import(pathToFileURL(${JSON.stringify(join(packageRoot,'dist','extension.js'))}));
+    const tools=[];register({registerTool:t=>tools.push(t)});console.log(tools.length);`;
+  assert.equal(execFileSync(process.execPath,['--input-type=module','-e',probe],{cwd:dir,encoding:'utf8',timeout:10000}).trim(),'16');
+  const pathProbe=`import {panelCLI,panelCommand} from ${JSON.stringify(pathToFileURL(join(packageRoot,'dist','herdr.js')).href)};console.log(JSON.stringify({cli:panelCLI,command:panelCommand('/project with spaces/config.json')}));`;
+  const launch=JSON.parse(execFileSync(process.execPath,['--input-type=module','-e',pathProbe],{cwd:dir,encoding:'utf8'}));assert.equal(launch.cli,installed);assert.ok(launch.command.includes(installed));assert.match(launch.command,/--connect-only/);
+  assert.equal(existsSync(join(dir,'.servicehost')),false);
   assert.match(execFileSync(process.execPath,[installed,'--help'],{cwd:dir,encoding:'utf8',timeout:10000}),/Panel closure never stops/);
   const bin=join(dir,'install','node_modules','.bin',process.platform==='win32'?'pi-servicehost.cmd':'pi-servicehost');assert.ok(existsSync(bin));
   if(process.platform==='linux') {
@@ -58,7 +74,7 @@ test('packed artifact installs without scripts and CLI lifecycle runs outside ch
    // util-linux script supplies a real disposable PTY; no Herdr or real service.
    const live=await ttyView(bin,['watch'],dir,'ready:"not-configured"',1200);assert.match(live,/exit:\?/);assert.equal(live.match(/ready:"not-configured"/g).length,1);
    const followed=await ttyView(bin,['follow','fixture'],dir,'tarball-ready',1200);assert.match(followed,/may contain secrets/);assert.equal(followed.match(/tarball-ready/g).length,1);
-   await ttyView(bin,['panel','--live'],dir,'ready:"not-configured"');
+   await ttyView(bin,['panel','--connect-only','--live'],dir,'ready:"not-configured"');
    const logsBefore=cli('logs','fixture').text;
    const panel=await ttyView(bin,['panel'],dir,'tarball-ready',0,'\x0cq');assert.match(panel,/\u001b\[\?1049h/);assert.match(panel,/\u001b\[\?25h\u001b\[\?1049l/);
    assert.equal(cli('logs','fixture').text,logsBefore,'Ctrl+L and quit do not truncate logs');

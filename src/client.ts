@@ -13,7 +13,7 @@ export async function request(c:Config,body:unknown,signal?:AbortSignal) {
   return data;
 }
 export async function up(c:Config) {
-  try { await request(c,{action:'ping'}); return {running:true,existing:true}; } catch(e:any) {
+  try { await request(c,{action:'ping'}); return {running:true,existing:true,apiPort:c.apiPort,configPath:c.file,project:c.id}; } catch(e:any) {
     // Only a refused connection permits a spawn. A live conflicting server must fail.
     if(e?.cause?.code!=='ECONNREFUSED') throw new SafeError('Management port unavailable or conflicting; runtime not launched');
   }
@@ -23,7 +23,7 @@ export async function up(c:Config) {
   let failed=false; child.once('error',()=>{failed=true;}); child.unref(); await log.close();
   for(let i=0;i<60;i++) {
     if(failed || child.exitCode!==null) throw new SafeError('Runtime failed to launch; inspect .servicehost/runtime.log');
-    try {await request(c,{action:'ping'});return {running:true,existing:false};} catch {await new Promise(r=>setTimeout(r,100));}
+    try {await request(c,{action:'ping'});return {running:true,existing:false,apiPort:c.apiPort,configPath:c.file,project:c.id};} catch {await new Promise(r=>setTimeout(r,100));}
   }
   throw new SafeError('Runtime launch unconfirmed; do not blindly retry. Inspect runtime.log and management port');
 }

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.0
+
+- Register focused Pi config/host/service tools and a packaged servicehost workflow skill over the independent runtime. Loading Pi starts no services; runtime/panel remain standalone and bundled.
+- Add validated revision-checked atomic config creation/update, cross-process mutation exclusion and lifetime runtime guards. apiPort remains authoritative with identity checks, no fallback, and active-port-change refusal; crashes require independent manual reconciliation.
+- Return bounded safe metadata and sanitized errors; never display configuration args/env or credential contents. Log text requires explicit sensitive-output opt-in, bounded and terminal-escaped; arbitrary application logs are not guaranteed secret-free.
+- Add explicit non-focusing Linux Herdr display open/reconnect, persisted launch fencing, pane/terminal identity checks and package-relative connect-only commands. Foreground process readiness is not claimed; Windows integration remains deferred. Standalone manual panel use is retained.
+- Add mock Pi, disposable config/runtime integration and peers-disabled installed-tarball checks; document user-first Pi and standalone workflows. Live Linux Pi/Herdr smoke test verified config creation, configured-port runtime start, panel opening/reconnection, HTTP readiness, service restart and cleanup.
+
 ## 0.3.0
 
 - Replace default `panel` prompt with a selectable service list, live stdout/stderr pane, compact shortcuts and package version; retain `panel --prompt`, `panel --live`, watch/follow and JSON commands.

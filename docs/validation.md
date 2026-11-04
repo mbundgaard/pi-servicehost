@@ -1,5 +1,17 @@
 # Validation record
 
+## Pi integration increment (local Linux, Unreleased)
+
+- `npm run typecheck` passed against pinned Pi 1.0.4 declarations.
+- `npm test` passed: **43 tests, 42 passed, 1 Windows-native skipped, 0 failures**.
+- `npm run check:package` passed: **2/2 package tests**, exact **28-file / 16-module** allowlist and pack dry run. Actual tarball installed outside checkout with scripts and peer auto-installation disabled (`--legacy-peer-deps --omit=dev`). Tests assert Pi/typebox are absent there and exercise standalone lifecycle and PTY panel/watch/follow.
+- Five new integration tests cover inert mock Pi registration (16 focused tools), secret-safe malformed-config errors, sanitized panel errors, config validation/revision/concurrent writer exclusion, active/stale runtime guards, duplicate prevention after external apiPort edit, failed-bind guard cleanup, conflicting-port/no-fallback behavior, detached host reconnect, service status/start/restart/stop/shutdown, bounded/cancelled readiness wait, default log-text withholding and explicit sensitive-text opt-in, byte limits, terminal escaping and no credential-file parsing. Five mocked Herdr tests cover non-focusing creation, returned IDs, reuse without input, terminal mismatch, pending launch fencing (lost split/run acknowledgements), cross-process lock exclusion, Linux-only refusal, and disposable shell argument roundtrip. Packed-module path resolution and connect-only PTY display are also tested.
+- `git diff --check` passed. Only Herdr help/skill and read-only current/list inspection were used; no live pane mutations, real project/service manipulation, models, nested workers, external messages, version bump, commit or publication. All process tests use disposable fixtures.
+- A direct compiled-extension import against the local development Pi dependency succeeded (no session/model run). Extension tests mock the host module and registration API rather than starting Pi. The development host is pinned to 1.0.4; its permissive codemode transitive range resolved to an incompatible 1.4.0 export surface, so a scoped 1.0.4 override keeps that development import compatible. Scoped undici 8.12.2 removes reported high-severity dev advisories. These overrides do not replace the real host supplied by Pi or add standalone runtime dependencies.
+- `npm install --ignore-scripts` reports **2 moderate development-tree advisories** (minimatch and the affected Pi dependency); no runtime dependencies are shipped. They remain an upstream development dependency limitation, not a claim of a clean full dependency audit.
+
+Review `docs/pi-integration.md` for explicit limits: Herdr open/reconnect verify display identity, not foreground process readiness; log excerpts explicitly opt into potentially sensitive output and are not guaranteed secret-free; no real Pi session/visual approval or native Windows validation is claimed. Crash guards require independent manual reconciliation. Configuration mutation protection assumes cooperating processes and trusted local directories; older binaries/external editors do not honor the protocol.
+
 ## Interactive panel increment (local Linux, 2026-10-13; Unreleased)
 
 - `npm run typecheck` passed.

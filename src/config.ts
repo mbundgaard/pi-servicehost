@@ -11,7 +11,10 @@ const text = (s: unknown): s is string => typeof s === 'string' && s.length > 0 
 const port = (n: unknown): n is number => Number.isInteger(n) && Number(n) > 0 && Number(n) <= 65535;
 export async function jsonFile(file: string): Promise<any> { const b = await readFile(file); demand(b.length <= 1024 * 1024, 'File too large'); return JSON.parse(b.toString()); }
 export async function loadConfig(path: string): Promise<Config> {
-  const file = await realpath(resolve(path)); const root = dirname(file); const c = await jsonFile(file);
+  const file = await realpath(resolve(path)); return parseConfig(file, await jsonFile(file));
+}
+export function parseConfig(file:string, c:any):Config {
+  const root = dirname(file);
   demand(c && port(c.apiPort) && text(c.logDirectory) && Array.isArray(c.services) && c.services.length <= 100, 'Invalid configuration');
   const names = new Set<string>(); const ports = new Set<number>([c.apiPort]);
   const services = c.services.map((s: any): Service => {

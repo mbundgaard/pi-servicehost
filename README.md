@@ -1,12 +1,14 @@
 # ServiceHost
 
-A standalone, project-local service runner with a detached HTTP runtime and an interactive terminal panel. **Linux-first, not production supervision.** Start services explicitly, reconnect from another terminal, and leave them running when the panel closes. No Pi SDK, extension, or Herdr dependency.
+A project-local service runner with a detached HTTP runtime, standalone terminal panel, and **Pi extension + skill (0.4.0)**. **Linux-first, not production supervision.** Start services explicitly and leave them running when Pi or the panel closes. No services start on extension load; no continuous logs enter model context.
 
-**Linux-first standalone npm CLI**, not a `pi install` extension. Version **0.3.0** adds the compact, keyboard-driven service panel described below. Version 0.2.0 passed Linux CI and npm Trusted Publishing with provenance. Repository: [mbundgaard/pi-servicehost](https://github.com/mbundgaard/pi-servicehost). See [GitHub releases](https://github.com/mbundgaard/pi-servicehost/releases) for publication status and the [release checklist](docs/release.md) for the publishing process.
+Version **0.4.0** adds Pi integration to the same package; 0.3.0 is standalone-only. Install with `pi install npm:@comput/pi-servicehost`, then reload Pi. [Pi installation, tools and limitations](docs/pi-integration.md) describes the workflow and local testing. Explicit Linux Herdr tools open a non-focusing display or verify its recorded identity; log excerpts require sensitive-text opt-in. See the integration contract for limits. Repository: [mbundgaard/pi-servicehost](https://github.com/mbundgaard/pi-servicehost).
 
 ## Install and use
 
-Install the published CLI:
+For Pi, build this checkout and `pi install /absolute/path/to/pi-servicehost`, then use `/skill:servicehost`. Ask the agent to inspect project scripts and propose config before starting anything. The same package bundles all compiled runtime/panel files; no separate global CLI is needed. Host/typebox peer dependencies come from Pi, not the standalone runtime. See the [integration guide](docs/pi-integration.md).
+
+For standalone use, install the published CLI:
 
 ```sh
 npm install -g @comput/pi-servicehost
@@ -15,7 +17,7 @@ pi-servicehost --help
 
 Requires Node.js **22.19+** and npm. **Linux is the initial release target**, with readable procfs in the same PID/network namespace and cooperative foreground services. macOS and other platforms are unsupported. Windows code is included for experimentation only: native validation and lifecycle work are deferred, not Linux release gates. Windows discovery requires Windows PowerShell and `Get-NetTCPConnection`; no Windows tree-stop guarantee is provided.
 
-Use version 0.3.0 or newer for the interactive panel described below, or install a locally built tarball (see Development below). A project-local registry installation also works: `npm install --save-dev @comput/pi-servicehost`, then `npx --no-install pi-servicehost --help`. No install scripts or runtime dependencies are needed.
+Use version 0.3.0 or newer for the interactive panel described below, or install a locally built tarball (see Development below). A project-local registry installation also works: `npm install --save-dev @comput/pi-servicehost`, then `npx --no-install pi-servicehost --help`. No install scripts or runtime dependencies are needed by the standalone CLI. Standalone installs can use `--legacy-peer-deps` to suppress Pi peers.
 
 Put `ServiceHost.json` in your project:
 
@@ -65,7 +67,7 @@ You can launch the panel manually in a Herdr terminal. Nothing configures or man
 
 Every command accepts `--config /path/to/ServiceHost.json`. Config directories and executable paths containing separators resolve relative to the config file; bare executable names use PATH. Native executable arguments are passed without shell expansion and are interpreted by the child relative to its working directory. Windows batch launches use the restricted grammar below. `port` is optional and is **TCP discovery**, not a readiness or health assertion. Services never auto-start.
 
-Configuration is read at runtime startup. Stop services and shut down the runtime **before editing** configuration, especially `apiPort`. There is no hot reload. Duplicate names/ports and sharing the management port are rejected.
+Configuration is read at runtime startup. Stop services and shut down the runtime **before editing** configuration, especially `apiPort`. There is no hot reload or alternate-port fallback. Pi config tools use revisions, atomic replacement and cross-process exclusion; new runtimes hold `<config>.runtime-lock` until normal shutdown. Crashes leave guards requiring independent manual reconciliation, never deletion based only on a saved PID. Duplicate names/ports and sharing the management port are rejected. See [concurrency/recovery](docs/pi-integration.md#management-port-and-concurrency-contract).
 
 ## Optional startup readiness (0.2.0)
 
@@ -97,6 +99,9 @@ Add these patterns to **your project's** `.gitignore`:
 .servicehost/
 logs/
 ServiceHost.credentials.json
+*.runtime-lock
+*.mutation-lock
+ServiceHost.json.*.tmp
 ```
 
 Also ignore any custom log directory. Protect your project and credentials with owner-only permissions/Windows ACLs. Created state/log files request POSIX modes 0700/0600; Node's mode flags do **not** establish Windows ACLs. The runtime inherits its launcher's environment and services inherit it too.
@@ -147,11 +152,11 @@ npm run typecheck
 npm test
 npm run check:package
 npm pack
-# install the generated comput-pi-servicehost-0.3.0.tgz locally if desired
-npm install -g ./comput-pi-servicehost-0.3.0.tgz
+# install the generated comput-pi-servicehost-0.4.0.tgz locally if desired
+npm install -g ./comput-pi-servicehost-0.4.0.tgz
 ```
 
-`prepack` builds standalone ES modules into `dist/`. When disabling scripts, run `npm run build` **before** `npm pack --ignore-scripts`; the release workflow does this explicitly. The tarball contains built JS, selected docs, example config and MIT license, not source, tests, legacy references, credentials or runtime state. Tests install the actual tarball with scripts disabled into a disposable prefix and run its CLI outside the checkout.
+`prepack` builds standalone ES modules into `dist/`. When disabling scripts, run `npm run build` **before** `npm pack --ignore-scripts`; the release workflow does this explicitly. The tarball contains built JS (including Pi extension and independent runtime), packaged skill, selected docs, example config and MIT license, not source, tests, legacy references, credentials or runtime state. Tests install the actual tarball with scripts disabled into a disposable prefix and run its CLI outside the checkout.
 
 The checked-in CI workflow targets Linux on Node 22.19 and 24; local validation is not evidence of remote CI success. Windows native validation is deferred; Linux planner tests do not prove Windows execution. Fixtures use disposable projects/processes, never real configured services.
 

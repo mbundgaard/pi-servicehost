@@ -8,6 +8,7 @@ import { identity, listeners, launch, isBatchChild, type Identity } from './plat
 import { LinuxGroup } from './linux-group.js';
 import { Readiness } from './readiness.js';
 import { logInventory } from './logs.js';
+import { configPath, exclusive } from './config-store.js';
 
 export async function auth(c:Config):Promise<string> {
   await mkdir(c.stateDirectory,{recursive:true,mode:0o700});
@@ -123,7 +124,20 @@ export class Manager {
   canShutdown() { return ![...this.states.values()].some(r=>r.running || (r.group && !r.group.released)); }
 }
 export async function serve(path:string) {
-  const c=await loadConfig(path); const token=await auth(c); const manager=new Manager(c); let queue=Promise.resolve(); let pending=0; let queued=0;
+  const file=await configPath(path);
+  const c=await exclusive(file,async()=>{
+    const config=await loadConfig(file);
+    let guard;
+    try {guard=await open(file+'.runtime-lock','wx',0o600);}
+    catch {throw new SafeError('EADDRINUSE: Runtime active or stale runtime lock; independent reconciliation required');}
+    try {await guard.writeFile(JSON.stringify({project:config.id,apiPort:config.apiPort}));}
+    catch(e) {await unlink(file+'.runtime-lock');throw e;}
+    finally {await guard.close();}
+    return config;
+  });
+  let token:string;
+  try {token=await auth(c);} catch(e) {await unlink(file+'.runtime-lock');throw e;}
+  const manager=new Manager(c); let queue=Promise.resolve(); let pending=0; let queued=0;
   const server=createServer((req,res)=>{
     const reply=(status:number,value:unknown)=>{res.writeHead(status,{'content-type':'application/json','cache-control':'no-store','x-content-type-options':'nosniff'});res.end(JSON.stringify(value));};
     const given=req.headers.authorization; const expected=`Bearer ${token}`;
@@ -140,7 +154,7 @@ export async function serve(path:string) {
       try {
         let b; try { b=JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch {throw new SafeError('Invalid JSON');}
         demand(b && typeof b==='object' && !Array.isArray(b),'Invalid request');
-        if(b.action==='ping') {reply(200,{project:c.id,protocol:1});return;}
+        if(b.action==='ping') {reply(200,{project:c.id,protocol:1,apiPort:(server.address() as import('node:net').AddressInfo).port});return;}
         if(b.action==='status') {reply(200,{project:c.id,services:await manager.status()});return;}
         if(b.action==='shutdown') {demand(manager.canShutdown(),'Managed children still running');reply(200,{stopped:true});server.close();return;}
         if(b.action==='log-inventory') {reply(200,await logInventory(c,b.limit??100));return;}
@@ -162,6 +176,8 @@ export async function serve(path:string) {
     }).catch(()=>{if(!res.headersSent)reply(500,{error:'Runtime operation failed'});});});
   });
   server.requestTimeout=15000; server.headersTimeout=10000; server.timeout=15000; server.maxConnections=32;
-  await new Promise<void>((res,rej)=>{server.once('error',rej);server.listen(c.apiPort,'127.0.0.1',res);});
+  try {await new Promise<void>((res,rej)=>{server.once('error',rej);server.listen(c.apiPort,'127.0.0.1',res);});}
+  catch(e) {await unlink(file+'.runtime-lock');throw e;}
+  server.once('close',()=>{void unlink(file+'.runtime-lock').catch(()=>{});});
   return {server,manager,config:c};
 }

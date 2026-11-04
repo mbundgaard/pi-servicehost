@@ -8,7 +8,7 @@ import { panel } from './panel.js';
 
 const help=`pi-servicehost [command] [service] [--config path]
   up                         Start detached runtime (no services auto-start)
-  panel [--prompt|--live]     Select services + live logs (prompt/ledger optional)
+  panel [--connect-only] [--prompt|--live] Select services + live logs
   watch                      Live compact status (non-TTY: one JSON snapshot)
   follow NAME [stdout|stderr] Live escaped logs; may contain secrets (non-TTY: one snapshot)
   log-inventory [LIMIT]       Dry-run only; bounded scan, no deletion
@@ -44,7 +44,8 @@ async function main() {
   }
   if(command==='panel') {
     demand(process.stdin.isTTY && process.stdout.isTTY,'Panel needs an interactive terminal');
-    await up(c);
+    if(args.includes('--connect-only')) await request(c,{action:'ping'});
+    else await up(c);
     if(args.includes('--live')){await watch(c);return;}
     if(!args.includes('--prompt')){await panel(c);return;}
     const rl=createInterface({input:process.stdin,output:process.stdout});
