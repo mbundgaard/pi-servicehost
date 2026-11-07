@@ -20,8 +20,8 @@ const descriptions:Record<string,string>={
   service_wait:'Wait at most timeoutMs (100–30000) for startup readiness to leave pending. Not continuous health, no lifecycle changes.',
   service_logs:'Inspect bounded logs. includeText:true explicitly acknowledges potentially sensitive application output entering model context; use only for authorized log diagnosis. No credential files are read and no secret-free guarantee. Default metadata only.',
   service_discover:'Inspect configured TCP listener identities; observation grants no stop authority or automatic adoption.',
-  panel_open:'Explicitly open a non-focusing Linux/Windows Herdr display for an already-running host, or verify its recorded pane. No runtime auto-start. Uncertain launches require manual inspection; Windows native validation remains pending.',
-  panel_reconnect:'Verify recorded Linux/Windows Herdr display identity and runtime connection, without shell input, focus, replacement or runtime launch. Pane presence is not foreground process readiness.',
+  panel_open:'Explicitly open a Linux/Windows Herdr display for an already-running host, or verify its record. New app/core splits the caller pane and changes tab focus; legacy Herdr preserves focus. No runtime auto-start or backend fallback. Uncertain launches need manual inspection.',
+  panel_reconnect:'Verify recorded Linux/Windows Herdr backend, display identity and runtime connection, without shell input, focus changes, replacement or runtime launch. Display presence and launch argv are not foreground process readiness.',
 };
 export default function extension(pi:ExtensionAPI) {
   for(const [operation,description] of Object.entries(descriptions)) {

@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
 import { exclusive } from './config-store.js';
 import { demand, SafeError, type Config } from './config.js';
+import { appPanel, type AppOptions } from './herdr-app.js';
 
 /** Decode package URLs with native path semantics, never URL.pathname (drive/UNC/escapes). */
 export function panelCLIFrom(moduleURL:string|URL=import.meta.url,platform:string=process.platform) {
@@ -31,7 +32,18 @@ const run:Run=async args=>(await promisify(execFile)('herdr',args,{timeout:10000
 interface State {version:1;project:string;workspace:string;marker:string;stage:string;pane?:string;tab?:string;terminal?:string}
 /** No shell injection on reconnect. A submitted record verifies only display identity,
  * not the current foreground program. Pending/crashed records require manual recovery. */
-export async function herdrPanel(c:Config,reconnect:boolean,options:{run?:Run;env?:NodeJS.ProcessEnv;platform?:string}={}) {
+export async function herdrPanel(c:Config,reconnect:boolean,options:AppOptions&{run?:Run}={}) {
+  const env=options.env??process.env;
+  const platform=options.platform??process.platform;
+  demand(platform==='linux'||platform==='win32','Herdr panel automation supports Linux and Windows only');
+  const coreIdentity=env.HC_TERMINAL_ID!==undefined||env.HC_TERMINAL_SOCKET!==undefined;
+  const legacyIdentity=env.HERDR_ENV!==undefined||env.HERDR_PANE_ID!==undefined;
+  demand(!(coreIdentity&&legacyIdentity),'Mixed Herdr backend identities; choose one environment explicitly');
+  if(coreIdentity)return appPanel(c,reconnect,panelCLI,options);
+  return legacyPanel(c,reconnect,options);
+}
+
+async function legacyPanel(c:Config,reconnect:boolean,options:{run?:Run;env?:NodeJS.ProcessEnv;platform?:string}={}) {
   const platform=options.platform??process.platform;
   demand(platform==='linux'||platform==='win32','Herdr panel automation supports Linux and Windows only');
   const env=options.env??process.env;

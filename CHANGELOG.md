@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.0
+
+- Support new Herdr app/core environments selected by explicit HC caller/socket identity, while preserving the v0.4.1 legacy Linux and Windows adapters. Mixed/partial identities fail; there is no automatic backend fallback or record migration.
+- Verify the local caller against app inventory, core labels and persisted layout; pin core ID, app home, endpoint and returned pane/terminal incarnation in version-2 launch state. Persist pending stages before mutation; uncertain launches remain fenced. Reconnect observes without shell input, focus changes or replacement.
+- Use an explicit caller-targeted down split with direct exact Node/bundled CLI/config argv and `--connect-only`, bypassing shell/PowerShell on the new backend. **New splits change tab focus to the new pane and clear tab zoom**; legacy non-focus behavior remains. Inherited caller cwd is safe because paths are absolute/config-relative.
+- Add Linux/mocked Windows app/core and disposable socket tests, backend/identity/failure fences, and installed-package checks. Core observations never auto-start core or read terminal output. Runtime authentication and service/process management are unchanged; no native helper or lifecycle redesign.
+- Native Windows execution and new-backend live smoke remain unverified; no app was open at the current default home. See validation and integration docs for source-derived contracts and permission needed for live display testing.
+
 ## 0.4.1
 
 - Add narrowly scoped Windows Herdr panel open/reconnect using non-focusing pane creation and encoded PowerShell invoking the exact Node executable, bundled CLI and config with `--connect-only`. Argument data is base64-decoded, including Unicode/apostrophes/metacharacters; package URL conversion preserves native drive/UNC paths.
@@ -37,6 +45,6 @@ Initial Linux-first npm release; registry installation and disposable Linux smok
 - Linux cooperative process-group ownership through a private live anchor; SIGTERM only, no escalation or whole-tree containment.
 - Unique direct-file stdout/stderr, launch-time credential placeholders, persistent leases that block unsafe relaunch after runtime loss.
 - Built JS tarball, MIT license, Linux CI and GitHub OIDC/provenance publishing workflow (workflow availability is not evidence of execution).
-- Windows launcher included as experimental: native validation and Job Object lifecycle deferred. Batch-wrapper leases require external reconciliation.
+- Windows launcher included with direct-child/wrapper-only ownership; no Job Object lifecycle. Batch-wrapper leases require external reconciliation.
 
 0.1.0 limits: manual stale-lease recovery, no health/readiness checks, autostart, watchdog, log rotation, full-screen dashboard or production-supervision guarantee. See README before use.

@@ -23,7 +23,7 @@ test('package is standalone compiled JS and excludes legacy, credentials and run
  const [pkg]=JSON.parse(output);const files=pkg.files.map(f=>f.path);
  const expected=['package.json','README.md','LICENSE','CHANGELOG.md','ServiceHost.example.json',
   'docs/design.md','docs/panel-design.md','docs/validation.md','docs/windows-lifecycle.md','docs/release.md','docs/pi-integration.md','skills/servicehost/SKILL.md',
-  ...['cli','client','config','config-store','integration','herdr','extension','runtime','readiness','logs','watch','panel','platform','linux-group','linux-group-helper','windows-launch'].map(n=>`dist/${n}.js`)];
+  ...['cli','client','config','config-store','integration','herdr','herdr-app','extension','runtime','readiness','logs','watch','panel','platform','linux-group','linux-group-helper','windows-launch'].map(n=>`dist/${n}.js`)];
  assert.deepEqual(files.sort(),expected.sort(),'Only reviewed files may ship; no references, source, tests, secrets or state');
  const p=JSON.parse(readFileSync('package.json','utf8'));assert.equal(p.bin['pi-servicehost'],'dist/cli.js');assert.ok(!p.dependencies);assert.deepEqual(p.pi,{extensions:['./dist/extension.js'],skills:['./skills']});assert.deepEqual(p.peerDependencies,{'@earendil-works/pi-coding-agent':'*',typebox:'*'});
  assert.equal(p.name,'@comput/pi-servicehost');assert.equal(p.license,'MIT');
@@ -47,6 +47,7 @@ test('packed artifact installs without scripts and CLI lifecycle runs outside ch
   assert.equal(existsSync(join(dir,'install','node_modules','typebox')),false);
   const packageRoot=join(dir,'install','node_modules','@comput','pi-servicehost');
   assert.ok(existsSync(join(packageRoot,'dist','extension.js')));
+  assert.ok(existsSync(join(packageRoot,'dist','herdr-app.js')));
   assert.ok(existsSync(join(packageRoot,'skills','servicehost','SKILL.md')));
   // Simulate Pi's host-provided peers for the installed extension; no real Pi/model.
   const mockHost='data:text/javascript,export async function withFileMutationQueue(path,task){return task()}';
@@ -55,6 +56,8 @@ test('packed artifact installs without scripts and CLI lifecycle runs outside ch
     const {default:register}=await import(pathToFileURL(${JSON.stringify(join(packageRoot,'dist','extension.js'))}));
     const tools=[];register({registerTool:t=>tools.push(t)});console.log(tools.length);`;
   assert.equal(execFileSync(process.execPath,['--input-type=module','-e',probe],{cwd:dir,encoding:'utf8',timeout:10000}).trim(),'16');
+  const directProbe=`import {directPanelArgv} from ${JSON.stringify(pathToFileURL(join(packageRoot,'dist','herdr-app.js')).href)};console.log(JSON.stringify(directPanelArgv('C:/雪 config.json',${JSON.stringify(installed)})));`;
+  assert.deepEqual(JSON.parse(execFileSync(process.execPath,['--input-type=module','-e',directProbe],{cwd:dir,encoding:'utf8'})),[process.execPath,installed,'panel','--connect-only','--config','C:/雪 config.json']);
   const pathProbe=`import {panelCLI,panelCommand} from ${JSON.stringify(pathToFileURL(join(packageRoot,'dist','herdr.js')).href)};console.log(JSON.stringify({cli:panelCLI,command:panelCommand('/project with spaces/config.json',panelCLI,process.execPath,'linux'),windows:panelCommand("C:/雪 O'Brien &/config.json",panelCLI,process.execPath,'win32')}));`;
   const launch=JSON.parse(execFileSync(process.execPath,['--input-type=module','-e',pathProbe],{cwd:dir,encoding:'utf8'}));assert.equal(launch.cli,installed);assert.ok(launch.command.includes(installed));assert.match(launch.command,/--connect-only/);
   const encoded=launch.windows.match(/^powershell\.exe -NoProfile -ExecutionPolicy Bypass -EncodedCommand ([A-Za-z0-9+/=]+)$/);assert.ok(encoded);

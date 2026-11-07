@@ -1,6 +1,6 @@
 {
   "name": "@comput/pi-servicehost",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "description": "Project-local service runtime, Pi tools and skill, and standalone terminal panel",
   "license": "MIT",
   "author": "Martin Bundgaard",
@@ -43,6 +43,7 @@
     "dist/extension.js",
     "dist/integration.js",
     "dist/herdr.js",
+    "dist/herdr-app.js",
     "dist/config-store.js",
     "skills/servicehost/SKILL.md",
     "docs/pi-integration.md",

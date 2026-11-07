@@ -2,7 +2,7 @@
 
 ## Scope and decisions
 
-This is an independent TypeScript npm CLI/runtime/terminal panel with an Unreleased thin Pi extension and packaged skill. Legacy files remain untouched. Pi peers are host-provided; standalone files never import them. See [Pi integration](pi-integration.md) for tools, concurrency, privacy and explicit Herdr limitations.
+This is an independent TypeScript npm CLI/runtime/terminal panel with a thin Pi extension and packaged skill. Legacy files remain untouched. Pi peers are host-provided; standalone files never import them. See [Pi integration](pi-integration.md) for tools, concurrency, privacy and explicit Herdr limitations.
 
 Modules:
 
@@ -12,6 +12,8 @@ Modules:
 - `src/linux-group.ts` / `src/linux-group-helper.ts`: private IPC capability and detached Node group anchor. Target inherits direct log descriptors; no pipe logging or shell. Helper is compiled/packed with the other JS modules, with no native dependency.
 - `src/client.ts`: identity-checked connection and detached runtime launch, append-only runtime diagnostic log.
 - `src/cli.ts`: commands, panel dispatch and retained `--prompt` mode.
+- `src/herdr.ts`: explicit environment-identity backend selection and preserved v0.4.1 legacy transport, including Windows encoded PowerShell/data quoting.
+- `src/herdr-app.ts`: app/core display adapter; direct bounded read-only core socket/named-pipe RPC, unique local caller mapping against app inventory/core document and labels, exact direct Node argv split, version-2 backend/core/app launch records and pending fences. No auto-start or backend fallback. New split changes tab focus/zoom; reconnect is read-only.
 - `src/panel.ts`: default interactive alternate-screen panel; pure layout helpers, bounded log caches, key mapping, serial authenticated request controller and terminal restoration.
 - `src/readiness.ts`: opt-in, per-launch bounded loopback HTTP startup observation; cancellation only, never lifecycle authority.
 - `src/logs.ts`: bounded dry-run inventory; no deletion because escaped descriptor holders cannot be ruled out.
@@ -42,5 +44,5 @@ API requests are authenticated before parsing; body <=16 KiB, at most 32 connect
 - Add explicit recovery workflow with no blind PID signaling, durable metadata transaction design, config revision checks, and launch identity attestation.
 - Expand adversarial HTTP/backpressure/timeouts, symlink/ACL, malformed configuration and platform-failure tests.
 - Consider safe retention only after stronger inactivity proof exists. Current inventory deliberately never removes files. No automatic restart policy is supplied.
-- Follow the [release checklist](release.md) for the next version. 0.1.0 is published and registry-installed; Trusted Publisher configuration is owner-reported, not proof of a tested OIDC run. Linux remains the release target; Windows validation is deferred.
-- Pi config/host/service tools and skill are implemented in this Unreleased increment. Explicit Linux/Windows Herdr display creation/reconnect verifies recorded pane/terminal identity without claiming foreground-process readiness. Pending records fence duplicate launches. The Windows panel adapter uses encoded PowerShell and the bundled Node CLI; native Windows live validation remains pending and service lifecycle limitations are unchanged.
+- Follow the [release checklist](release.md) for the next version. 0.1.0 is published and registry-installed; Trusted Publisher configuration is owner-reported, not proof of a tested OIDC run. See the platform-specific validation record for test coverage.
+- Pi config/host/service tools and skill are implemented. Explicit Linux/Windows Herdr display creation/reconnect verifies recorded pane/terminal identity without claiming foreground-process readiness. Pending records fence duplicate launches. The legacy Windows panel adapter retains encoded PowerShell and the bundled Node CLI. New app/core passes argv directly in an explicit caller-pane split, inheriting caller cwd (absolute/config-relative paths avoid a project-cwd dependency), and intentionally changes tab focus instead of claiming unsupported non-focus. Its core metadata checks reject parent-bound terminals; app keep recovery is not panel rerun/readiness. Service lifecycle implementations and limitations are unchanged; test coverage is recorded in validation.md.

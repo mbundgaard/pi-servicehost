@@ -1,8 +1,8 @@
 # ServiceHost
 
-A project-local service runner with a detached HTTP runtime, standalone terminal panel, and **Pi extension + skill (0.4.1)**. **Linux-first, not production supervision.** Start services explicitly and leave them running when Pi or the panel closes. No services start on extension load; no continuous logs enter model context.
+A project-local service runner with a detached HTTP runtime, standalone terminal panel, and **Pi extension + skill (0.5.0)**. Start services explicitly and leave them running when Pi or the panel closes. No services start on extension load; no continuous logs enter model context.
 
-Version **0.4.0** added Pi integration; **0.4.1** adds Windows Herdr panel launching for native testing. Version 0.3.0 is standalone-only. Install with `pi install npm:@comput/pi-servicehost`, then reload Pi. [Pi installation, tools and limitations](docs/pi-integration.md) describes the workflow and local testing. Explicit Linux/Windows Herdr tools open a non-focusing display or verify its recorded identity; log excerpts require sensitive-text opt-in. See the integration contract for limits. Repository: [mbundgaard/pi-servicehost](https://github.com/mbundgaard/pi-servicehost).
+Version **0.5.0** adds the new Herdr app/core adapter and preserves the legacy Linux/Windows integration from 0.4.1. Version 0.3.0 is standalone-only. Install with `pi install npm:@comput/pi-servicehost`, then reload Pi. [Pi installation, tools and limitations](docs/pi-integration.md) describes the workflow and local testing. Explicit Linux/Windows Herdr tools open a display or verify its recorded identity; **the new app/core adapter changes tab focus to its split pane**, while legacy Herdr remains non-focusing. Log excerpts require sensitive-text opt-in. See the integration contract for limits. Repository: [mbundgaard/pi-servicehost](https://github.com/mbundgaard/pi-servicehost).
 
 ## Install and use
 
@@ -15,7 +15,7 @@ npm install -g @comput/pi-servicehost
 pi-servicehost --help
 ```
 
-Requires Node.js **22.19+** and npm. **Linux is the initial release target**, with readable procfs in the same PID/network namespace and cooperative foreground services. macOS and other platforms are unsupported. Windows code is included for experimentation only: native validation and lifecycle work are deferred, not Linux release gates. Windows discovery requires Windows PowerShell and `Get-NetTCPConnection`; no Windows tree-stop guarantee is provided.
+Requires Node.js **22.19+** and npm. Linux requires readable procfs in the same PID/network namespace and cooperative foreground services. macOS and other platforms are unsupported. Windows discovery requires Windows PowerShell and `Get-NetTCPConnection`; no Windows tree-stop guarantee is provided.
 
 Use version 0.3.0 or newer for the interactive panel described below, or install a locally built tarball (see Development below). A project-local registry installation also works: `npm install --save-dev @comput/pi-servicehost`, then `npx --no-install pi-servicehost --help`. No install scripts or runtime dependencies are needed by the standalone CLI. Standalone installs can use `--legacy-peer-deps` to suppress Pi peers.
 
@@ -63,7 +63,7 @@ Reads and controls share one serial lane; reads refresh one second after each cy
 
 `panel --prompt` retains the command prompt; `panel --live` retains the line-oriented compact ledger. `watch` attaches without launching a runtime; `follow api [stdout|stderr]` follows one stream. These older views remain line-oriented and JSON-escape logs; `q` + Enter, EOF or Ctrl-C ends the view. Unlike the panel, their request errors exit. Non-TTY `watch`/`follow` return one JSON snapshot and exit; all panel modes require a TTY. Machine-readable commands/API are unchanged. `lastExitCode` persists across launches within this runtime (`?` unknown, `no-code` a nonnumeric exit); `exitCode` remains current-launch only.
 
-You can launch the panel manually in a Herdr terminal. Explicit Pi panel tools can also create a non-focusing Linux/Windows Herdr pane or verify its recorded identity; nothing manipulates Herdr on extension load. Windows uses encoded PowerShell to invoke the exact Node executable and bundled CLI with `--connect-only`, not npm/cmd shims. This narrow panel adapter does not change Windows service/lifecycle limitations; native Windows live Herdr validation remains pending. See the [display contract](docs/pi-integration.md#herdr-display-contract-linux-and-windows). See [panel design and evidence](docs/panel-design.md); visual approval and native Windows terminal testing are not claimed.
+You can launch the panel manually in a Herdr terminal. Explicit Pi panel tools can also create a Linux/Windows Herdr pane or verify its recorded identity; nothing manipulates Herdr on extension load. The adapter selects new `herdr-app`/`herdr-core` from explicit `HC_TERMINAL_ID` + `HC_TERMINAL_SOCKET` identity, verifies the caller against the app and core layout, and splits that pane down with direct Node argv. **The new pane receives tab focus; no non-focus guarantee or focus restoration is offered.** Its cwd follows the caller; absolute bundled CLI/config paths make project cwd unnecessary. The legacy `HERDR_ENV`/`HERDR_PANE_ID` adapter retains non-focusing splits and Windows encoded PowerShell. Both invoke the exact Node executable and bundled CLI with `--connect-only`, not npm/cmd shims. Mixed identities, unavailable APIs and pending/mismatched records fail without backend fallback. This panel adapter does not change Windows service ownership or lifecycle behavior. See the [display contract](docs/pi-integration.md#herdr-display-contract-linux-and-windows). See [panel design and evidence](docs/panel-design.md).
 
 Every command accepts `--config /path/to/ServiceHost.json`. Config directories and executable paths containing separators resolve relative to the config file; bare executable names use PATH. Native executable arguments are passed without shell expansion and are interpreted by the child relative to its working directory. Windows batch launches use the restricted grammar below. `port` is optional and is **TCP discovery**, not a readiness or health assertion. Services never auto-start.
 
@@ -108,7 +108,7 @@ Also ignore any custom log directory. Protect your project and credentials with 
 
 Each launch opens two unique files, `NAME-ID.stdout.log` and `.stderr.log`, with exclusive creation and passes their file descriptors directly to the child. **No existing log is ever truncated**, including reconnect/adoption. Logs are not rotated or pruned. The API tails up to 64 KiB from the current runtime's launch; old files remain on disk but are not automatically reattached.
 
-New in 0.2.0: `log-inventory [LIMIT]` is an opt-in **dry-run only** inventory, not a cleanup command. It scans at most LIMIT directory entries (default 100, range 1–1000), without recursion, and reports sizes/basenames only for known service names with exact unique-launch filenames. Symlinks, directories, hard-linked files, unknown services and other filenames are excluded. `truncated` means the scan was incomplete; order is filesystem-dependent, with no pagination or whole-directory size claim. Every reported file is `retained-inactivity-unproven`, including stopped/historical launches. Group drain, file age and missing leases cannot prove escaped processes released inherited descriptors. **Deletion/retention enforcement is intentionally deferred** until positive inactivity can be established; this command never deletes or truncates anything. Do not treat the inventory as permission to remove files.
+New in 0.2.0: `log-inventory [LIMIT]` is an opt-in **dry-run only** inventory, not a cleanup command. It scans at most LIMIT directory entries (default 100, range 1–1000), without recursion, and reports sizes/basenames only for known service names with exact unique-launch filenames. Symlinks, directories, hard-linked files, unknown services and other filenames are excluded. `truncated` means the scan was incomplete; order is filesystem-dependent, with no pagination or whole-directory size claim. Every reported file is `retained-inactivity-unproven`, including stopped/historical launches. Group drain, file age and missing leases cannot prove escaped processes released inherited descriptors. This command never deletes or truncates files, because positive inactivity cannot be established. Do not treat the inventory as permission to remove files.
 
 ## Ownership and recovery
 
@@ -121,13 +121,13 @@ New in 0.2.0: `log-inventory [LIMIT]` is an opt-in **dry-run only** inventory, n
 - After a crash, externally inspect the saved lease, OS processes and descendants, and logs. Only after **independently confirming termination** and ensuring no other runtime for that config is active, remove the particular `.servicehost/NAME.lease.json`. This is manual recovery, not a verified recovery command. Never delete leases to bypass uncertainty.
 - `shutdown` refuses while any managed child is live or Linux group ownership is unreleased. Runtime death disconnects the Linux anchor, which exits without signaling services; surviving processes continue direct-file logging. No new runtime regains signal authority from a lease. There is no crash cleanup guarantee, reboot recovery, autostart, watchdog, Job Object, pidfd, or system service installation.
 
-## Windows launching (experimental; validation deferred)
+## Windows launching
 
 Native `.exe`/`.com` images use Node's normal argument quoting, never `shell:true` or verbatim arguments. Prefer `node.exe` with the installed package's CLI `.js` file in `args`, especially for credentials or complex arguments. Individual native programs can implement nonstandard argument parsing.
 
 Bare names resolve on the child's PATH, trying `.exe`, `.com`, `.cmd`, then `.bat` per directory; no implicit current-directory search, relative PATH entries, or custom PATHEXT handlers. Supply `./script.cmd` for a config-relative script. Explicit extensions must be one of those four. Files are resolved before spawning; trusted local files/PATH are required, not protected against malicious file replacement.
 
-**Experimental, restricted `.cmd`/`.bat` launching** (including npm/pnpm/yarn shims when found on PATH) invokes the system `cmd.exe /d /s /v:off /c` with a deliberately closed grammar:
+**Restricted `.cmd`/`.bat` launching** (including npm/pnpm/yarn shims when found on PATH) invokes the system `cmd.exe /d /s /v:off /c` with a deliberately closed grammar:
 
 - Batch path: local drive-absolute ASCII letters/digits, spaces, underscore, dot, dash and path separators; no UNC/device paths, shell syntax, or components ending in space/dot.
 - Each argument: nonempty ASCII letters/digits or `_ . / : + -` (the spaces in this list are separators, not allowed characters). No whitespace, quotes, backslashes, comma, equals, semicolon, `%`, `!`, shell operators, controls or Unicode. For example `args: ["run", "dev", "--", "--port", "3000"]`; `"--port=3000"` is rejected because batch parameter parsing treats equals as a separator.
@@ -152,13 +152,13 @@ npm run typecheck
 npm test
 npm run check:package
 npm pack
-# install the generated comput-pi-servicehost-0.4.1.tgz locally if desired
-npm install -g ./comput-pi-servicehost-0.4.1.tgz
+# install the generated comput-pi-servicehost-0.5.0.tgz locally if desired
+npm install -g ./comput-pi-servicehost-0.5.0.tgz
 ```
 
 `prepack` builds standalone ES modules into `dist/`. When disabling scripts, run `npm run build` **before** `npm pack --ignore-scripts`; the release workflow does this explicitly. The tarball contains built JS (including Pi extension and independent runtime), packaged skill, selected docs, example config and MIT license, not source, tests, legacy references, credentials or runtime state. Tests install the actual tarball with scripts disabled into a disposable prefix and run its CLI outside the checkout.
 
-The checked-in CI workflow targets Linux on Node 22.19 and 24; local validation is not evidence of remote CI success. Windows native validation is deferred; Linux planner tests do not prove Windows execution. Fixtures use disposable projects/processes, never real configured services.
+The checked-in CI workflow targets Linux on Node 22.19 and 24; local validation is not evidence of remote CI success. Platform-specific validation results are recorded in [validation.md](docs/validation.md). Fixtures use disposable projects/processes, never real configured services.
 
 See [design and next steps](docs/design.md), [validation record](docs/validation.md), [changelog](CHANGELOG.md) and [release/setup checklist](docs/release.md).
 

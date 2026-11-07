@@ -1,13 +1,23 @@
 # Validation record
 
-## Windows Herdr panel increment (local Linux, Unreleased)
+## Herdr app/core architecture increment (local Linux)
+
+- `npm run typecheck` passed. `npm test`: **84 tests, 82 passed, 2 Windows-native skipped, 0 failures**. `npm run check:package`: **2/2 passed**, exact **29-file / 17-module** allowlist, actual installed tarball outside checkout and pack dry run. `git diff --check` passed. No version bump; package remains 0.4.1 until separately released.
+- 35 new tests cover explicit backend selection, partial/mixed identities, Linux and mocked Windows direct argv (including drive/UNC/Unicode/metacharacters), unique caller mapping, sub-agent/remote/duplicate rejection, core labels/layout/permanent ID, app home/socket changes, read-only reuse, terminal incarnation/argv/lifetime replacement, pending-before-mutation persistence, lost acknowledgements, concurrent exclusion, core identity changes during launch and bounded/sanitized disposable socket transport. Existing legacy Linux and v0.4.1 Windows tests remain unchanged. Package tests assert the new compiled adapter ships and constructs installed-path argv without loading Pi peers.
+- Read both installed `--skill` manuals fully, app/core help/command list and core schema. Versions were `herdr-app 0.1.13` and `herdr-core 0.1.18`; `hc` is available, legacy `herdr` is not required. Read-only core caller/status observations succeeded. **App `ls` and `status` reported no window at the default app home**; the requested installed `~/.config/herdr-app/AGENTS.md` did not exist. No successful live app hierarchy/launch response is claimed. Read the guide embedded in the installed binary instead, then checked version-tagged upstream source rather than inventing schemas.
+- Contract sources: app [window.rs](https://github.com/herdrdev/herdr-app/blob/v0.1.13/src/window.rs) (`world`, `split`, `new_tab`, `agent_argv`), [model.rs](https://github.com/herdrdev/herdr-app/blob/v0.1.13/src/model.rs) (split focuses new pane/clears tab zoom), [hc.rs](https://github.com/herdrdev/herdr-app/blob/v0.1.13/src/hc.rs) (direct `terminal.run`, keep enabled, no caller/parent), [mirror.rs](https://github.com/herdrdev/herdr-app/blob/v0.1.13/src/mirror.rs) / `mirror_sync.rs` / `layout.rs` (persisted document schema), and core 0.1.18 schema plus [Windows transport](https://github.com/herdrdev/herdr-core/blob/v0.1.18/crates/herdr-core/src/platform/windows.rs) (local named pipe). Core CLI `connect`/ordinary observations can autostart core; the implementation deliberately uses bounded direct read-only socket/pipe RPC instead.
+- **Behavior change:** new app/core opens a caller-targeted down split that receives tab focus and clears tab zoom. It does not preserve focus, restore focus, target an unrelated focused pane, or wrap argv in a shell. Cwd follows the caller/space; absolute CLI/config paths make project cwd unnecessary. Legacy non-focusing split/Windows encoded PowerShell remain preserved.
+- No live app mutation, real terminal/service launch, app/core restart, worker, external message, Pi host API change, runtime/process-management change, helper, commit, push or release. All execution tests use disposable fixtures. Direct core observations return no terminal text or raw argv to the user.
+- **Remaining verification:** native Windows named-pipe/Herdr direct argv and inherited cwd, native legacy PowerShell, TUI appearance/focus/zoom, recovery-shell behavior, app/Pi/caller closure and Windows console lifetime. Mocked Windows tests on Linux cannot prove these. A new-backend live smoke requires owner permission to change a display and an already-open app; explicitly start/authenticate the ServiceHost host separately. In the current app-less environment, panel operations fail safely rather than opening a window.
+
+## Windows Herdr panel increment (local Linux, v0.4.1)
 
 - `npm run typecheck` passed. `npm test`: **49 tests, 47 passed, 2 Windows-native skipped, 0 failures**. `npm run check:package`: **2/2 passed**, unchanged exact 28-file/16-module allowlist, installed-tarball checks and pack dry run. `git diff --check` passed.
 - Deterministic tests decode the fixed PowerShell grammar and verify exact argv including spaces, Unicode, apostrophes, smart quotes and shell metacharacters; drive/UNC package URL conversion is tested. Mock Windows Herdr transport exercises complete open → persisted submission → reconnect/reopen without input, terminal replacement refusal and lost split/rename/run acknowledgement fences. The installed tarball is imported outside the checkout to verify its own bundled CLI and exact Node path in the Windows command.
 - Consulted sibling Intercom launcher/monitor code read-only and installed `herdr pane split --help` / `pane run --help` for command contracts. No real Herdr mutation, real service, worker, external message, version bump, commit, push or publication. No Pi host API change or service/runtime lifecycle redesign.
 - The new native Windows test uses Windows PowerShell to run only a disposable Node argv recorder (not Herdr or a service). It and the existing Windows service execution test are gated and skipped on this Linux host. **Native Windows PowerShell execution, live Herdr pane opening/reconnect/non-focus, TUI behavior and console-close behavior remain unverified here.** Deterministic/mocked Linux checks are not a Windows live smoke or proof of foreground readiness. Windows service limitations are unchanged.
 
-## Pi integration increment (local Linux, Unreleased)
+## Pi integration increment (local Linux)
 
 - `npm run typecheck` passed against pinned Pi 1.0.4 declarations.
 - `npm test` passed: **43 tests, 42 passed, 1 Windows-native skipped, 0 failures**.
@@ -19,7 +29,7 @@
 
 Review `docs/pi-integration.md` for explicit limits: Herdr open/reconnect verify display identity, not foreground process readiness; log excerpts explicitly opt into potentially sensitive output and are not guaranteed secret-free; no real Pi session/visual approval or native Windows validation is claimed. Crash guards require independent manual reconciliation. Configuration mutation protection assumes cooperating processes and trusted local directories; older binaries/external editors do not honor the protocol.
 
-## Interactive panel increment (local Linux, 2026-10-13; Unreleased)
+## Interactive panel increment (local Linux, 2026-10-13)
 
 - `npm run typecheck` passed.
 - `npm test` passed: 33 tests, 32 passed, one Windows-native test skipped, zero failures.
@@ -35,7 +45,7 @@ Limitations: ANSI/Unicode rendering conventions vary by terminal; byte-cursor bo
 
 The following records the earlier pre-panel run, not the current package manifest.
 
-Environment: Node v22.23.3, npm 10.9.9. This is an Unreleased source increment, not a new npm publication. The owner separately verified installation and a disposable Linux smoke test of the **registry 0.1.0** package. Trusted Publisher configuration is owner-reported; no remote CI/OIDC/provenance run was inspected or claimed here.
+Environment: Node v22.23.3, npm 10.9.9. These checks cover the source increment; they do not establish npm publication. The owner separately verified installation and a disposable Linux smoke test of the **registry 0.1.0** package. Trusted Publisher configuration is owner-reported; no remote CI/OIDC/provenance run was inspected or claimed here.
 
 Final local suite results: Tests use disposable projects and cooperative/self-expiring fixture processes; no real services, live Herdr manipulation, Pi SDK, nested workers, external messaging, account changes, commits, pushes or publication.
 
