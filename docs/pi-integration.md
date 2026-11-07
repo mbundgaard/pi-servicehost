@@ -1,10 +1,10 @@
-# Pi integration (0.4.0)
+# Pi integration (0.4.1)
 
 The npm package now registers a thin extension and the `servicehost` skill. The existing independent runtime and standalone CLI/panel ship in the same tarball. No separate global CLI or Pi installation is needed to run the standalone compiled files. The extension does not embed services in Pi, start on load, inject ongoing logs, or stop services when Pi closes.
 
 ## Install
 
-Install version 0.4.0 or newer:
+Install version 0.4.1 or newer for Windows Herdr panel support (native validation pending):
 
 ```sh
 pi install npm:@comput/pi-servicehost

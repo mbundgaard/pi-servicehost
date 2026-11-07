@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.4.1
 
 - Add narrowly scoped Windows Herdr panel open/reconnect using non-focusing pane creation and encoded PowerShell invoking the exact Node executable, bundled CLI and config with `--connect-only`. Argument data is base64-decoded, including Unicode/apostrophes/metacharacters; package URL conversion preserves native drive/UNC paths.
 - Preserve Linux commands, runtime authentication, pane/tab/terminal identity checks, mutation locks and uncertain-launch fencing. Reconnect never injects commands; foreground readiness is not claimed. No service launcher/lifecycle redesign, Job Objects or native helper.

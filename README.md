@@ -1,8 +1,8 @@
 # ServiceHost
 
-A project-local service runner with a detached HTTP runtime, standalone terminal panel, and **Pi extension + skill (0.4.0)**. **Linux-first, not production supervision.** Start services explicitly and leave them running when Pi or the panel closes. No services start on extension load; no continuous logs enter model context.
+A project-local service runner with a detached HTTP runtime, standalone terminal panel, and **Pi extension + skill (0.4.1)**. **Linux-first, not production supervision.** Start services explicitly and leave them running when Pi or the panel closes. No services start on extension load; no continuous logs enter model context.
 
-Version **0.4.0** adds Pi integration to the same package; 0.3.0 is standalone-only. Install with `pi install npm:@comput/pi-servicehost`, then reload Pi. [Pi installation, tools and limitations](docs/pi-integration.md) describes the workflow and local testing. Explicit Linux/Windows Herdr tools open a non-focusing display or verify its recorded identity; log excerpts require sensitive-text opt-in. See the integration contract for limits. Repository: [mbundgaard/pi-servicehost](https://github.com/mbundgaard/pi-servicehost).
+Version **0.4.0** added Pi integration; **0.4.1** adds Windows Herdr panel launching for native testing. Version 0.3.0 is standalone-only. Install with `pi install npm:@comput/pi-servicehost`, then reload Pi. [Pi installation, tools and limitations](docs/pi-integration.md) describes the workflow and local testing. Explicit Linux/Windows Herdr tools open a non-focusing display or verify its recorded identity; log excerpts require sensitive-text opt-in. See the integration contract for limits. Repository: [mbundgaard/pi-servicehost](https://github.com/mbundgaard/pi-servicehost).
 
 ## Install and use
 
@@ -152,8 +152,8 @@ npm run typecheck
 npm test
 npm run check:package
 npm pack
-# install the generated comput-pi-servicehost-0.4.0.tgz locally if desired
-npm install -g ./comput-pi-servicehost-0.4.0.tgz
+# install the generated comput-pi-servicehost-0.4.1.tgz locally if desired
+npm install -g ./comput-pi-servicehost-0.4.1.tgz
 ```
 
 `prepack` builds standalone ES modules into `dist/`. When disabling scripts, run `npm run build` **before** `npm pack --ignore-scripts`; the release workflow does this explicitly. The tarball contains built JS (including Pi extension and independent runtime), packaged skill, selected docs, example config and MIT license, not source, tests, legacy references, credentials or runtime state. Tests install the actual tarball with scripts disabled into a disposable prefix and run its CLI outside the checkout.
