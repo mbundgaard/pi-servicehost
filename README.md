@@ -1,10 +1,10 @@
 # ServiceHost
 
-A project-local service runner with a detached HTTP runtime, standalone terminal panel, and **Pi extension + skill (0.6.0)**. Start services explicitly and leave them running when Pi or the panel closes. No services start on extension load; no continuous logs enter model context.
+A project-local service runner with a detached HTTP runtime, standalone terminal panel, and **Pi extension + skill (0.6.1)**. Start services explicitly and leave them running when Pi or the panel closes. No services start on extension load; no continuous logs enter model context.
 
 Version **0.5.0** adds the new Herdr app/core adapter and preserves the legacy Linux/Windows integration from 0.4.1. Version 0.3.0 is standalone-only. Install with `pi install npm:@comput/pi-servicehost`. When upgrading a Pi process that loaded the older compiled extension, **fully exit and restart Pi once**; subsequent TS-entry upgrades can use resource rediscovery and `/reload`. See [extension loading and upgrade recovery](docs/extension-loading.md). [Pi installation, tools and limitations](docs/pi-integration.md) describes the workflow and local testing. Explicit Linux/Windows Herdr tools open a display or verify its recorded identity; **the new app/core adapter changes tab focus to its split pane**, while legacy Herdr remains non-focusing. Log excerpts require sensitive-text opt-in. See the integration contract for limits. Repository: [mbundgaard/pi-servicehost](https://github.com/mbundgaard/pi-servicehost).
 
-### New in 0.6.0
+### New in 0.6.1
 
 **Explicit `servicehost_host_start` now starts/connects the runtime and opens/reuses its visible Herdr panel in the same operation.** Extension registration, session start and reload remain inert; services still require individual `servicehost_service_start` calls. Host start accepts optional `placement: "split" | "tab"` (default split), using the same adapter ownership checks as panel open. Panel failure is a structured tool error with `runtimeRunning` (true after identity verification, null if unconfirmed), project/config/authoritative `apiPort`, and a panel error. Runtime/services are left intact; inspect status and recorded panes before any retry. `host_shutdown` still refuses owned services. Standalone CLI `up` remains explicitly headless.
 
@@ -159,8 +159,8 @@ npm run typecheck
 npm test
 npm run check:package
 npm pack
-# install the generated comput-pi-servicehost-0.6.0.tgz locally if desired
-npm install -g ./comput-pi-servicehost-0.6.0.tgz
+# install the generated comput-pi-servicehost-0.6.1.tgz locally if desired
+npm install -g ./comput-pi-servicehost-0.6.1.tgz
 ```
 
 `prepack` builds standalone ES modules into `dist/`. When disabling scripts, run `npm run build` **before** `npm pack --ignore-scripts`; the release workflow does this explicitly. The tarball contains built JS (including Pi extension and independent runtime), packaged skill, selected docs, example config and MIT license, not source, tests, legacy references, credentials or runtime state. Tests install the actual tarball with scripts disabled into a disposable prefix and run its CLI outside the checkout.

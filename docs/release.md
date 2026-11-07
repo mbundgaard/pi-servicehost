@@ -4,13 +4,13 @@
 
 Version 0.1.0 was bootstrapped through local npm authentication. Version 0.2.0 passed GitHub Linux validation and Trusted Publishing with provenance in [run 38363375101](https://github.com/mbundgaard/pi-servicehost/actions/runs/38363375101). MIT licensing and package/repository names are confirmed.
 
-This checkout prepares the owner-authorized **0.6.0** release adding visible host start, split-above/new-tab placement, reload-safe extension packaging and panel log scrolling; platform-specific test evidence is recorded in validation.md. Verify its publishing workflow outcome before claiming publication. Published versions are immutable; never republish 0.1.0 or 0.2.0.
+This checkout prepares the owner-authorized **0.6.1** release adding visible host start, split-above/new-tab placement, reload-safe extension packaging and panel log scrolling; platform-specific test evidence is recorded in validation.md. Verify its publishing workflow outcome before claiming publication. Published versions are immutable; never republish 0.1.0 or 0.2.0.
 
 Published 0.3.0 is standalone-only. Version 0.4.0 additionally registers Pi tools and a skill; see [integration](pi-integration.md). The owner authorized this release after the live Linux smoke test. Linux cooperative foreground services and readable procfs remain the supported scope. Windows uses direct-child/wrapper-only ownership. POSIX file modes do not establish Windows ACLs, and no Job Object ownership is implemented. macOS is unsupported.
 
 ## Next release gates
 
-- Review the complete changes, safety contracts, package manifest and 0.6.0 changelog; choose a fresh version and update package.json/lockfile together only when preparing an authorized release.
+- Review the complete changes, safety contracts, package manifest and 0.6.1 changelog; choose a fresh version and update package.json/lockfile together only when preparing an authorized release.
 - On that revision: `npm ci --ignore-scripts`, `npm run typecheck`, `npm test`, `npm run check:package`.
 - Inspect the allowlisted artifact after an explicit build: `npm pack --ignore-scripts`, then `tar -tzf` on the generated tarball. Fifteen built JS modules, the packaged skill and selected docs/config/metadata/license ship; source, tests, feedback, references, state, logs and credentials do not.
 - Install the actual tarball with scripts and automatic peer installation disabled into a disposable prefix. Tests invoke its installed bin outside the checkout and exercise lifecycle plus observability commands. See [validation.md](validation.md) for local evidence, not remote gate results.

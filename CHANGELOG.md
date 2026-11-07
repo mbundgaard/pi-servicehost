@@ -1,6 +1,10 @@
 # Changelog
 
-## 0.6.0
+## 0.6.1
+
+First npm release of the changes below. The 0.6.0 GitHub tag failed Node 24 validation and was not published. The runtime-loss logging test now waits for actual heartbeat output with a bounded deadline instead of assuming a 300 ms scheduler window; its disposable fixture lifetime includes that observation budget.
+
+## 0.6.0 (GitHub tag only)
 
 - Add PageUp/PageDown, Home and End log navigation with per-service anchored history, live/paused/pruned indicators, and a 500-row buffer. Incoming output does not displace paused history. Ctrl+L clears only the view and resumes follow; log files remain unchanged.
 

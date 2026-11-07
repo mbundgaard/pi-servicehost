@@ -47,17 +47,18 @@ test('Linux runtime death disconnects anchor: survivors log, stale lease cannot 
  try{
   const probe=net.createServer();probe.listen(0,'127.0.0.1');await once(probe,'listening');c.apiPort=probe.address().port;await new Promise(r=>probe.close(r));
   const raw=JSON.parse(await readFile(c.file,'utf8'));raw.apiPort=c.apiPort;await writeFile(c.file,JSON.stringify(raw));
-  await writeFile(join(root,'leaf.cjs'),`console.log('leaf-ready');setInterval(()=>console.log('heartbeat'),100);setTimeout(()=>process.exit(0),2500);`);
+  await writeFile(join(root,'leaf.cjs'),`console.log('leaf-ready');setInterval(()=>console.log('heartbeat'),100);setTimeout(()=>process.exit(0),6000);`);
   // Other ancestors also expire shortly, independent of runtime health.
-  for(const f of ['middle.cjs','parent.cjs'])await writeFile(join(root,f),(await readFile(join(root,f),'utf8')).replaceAll('8000','2500'));
+  for(const f of ['middle.cjs','parent.cjs'])await writeFile(join(root,f),(await readFile(join(root,f),'utf8')).replaceAll('8000','6000'));
   runtime=spawn(process.execPath,[fileURLToPath(new URL('../dist/cli.js',import.meta.url)),'serve','--config',c.file],{stdio:'ignore'});
   await until(async()=>{try{await request(c,{action:'ping'});return true;}catch{return false;}});
   await request(c,{action:'start',name:'tree'});await until(async()=>/leaf-ready/.test((await request(c,{action:'logs',name:'tree'})).text));
   const files=await readdir(join(root,'logs'));const output=join(root,'logs',files.find(f=>f.includes('stdout')));const before=await readFile(output,'utf8');
   const closed=once(runtime,'close');runtime.kill('SIGKILL');await closed;
   const recovered=new Manager(c);await assert.rejects(recovered.stop('tree'),/Only a direct child/);await assert.rejects(recovered.start('tree'),/Stale launch lease/);
-  await delay(300);assert.ok((await readFile(output,'utf8')).length>before.length);assert.deepEqual(await readdir(join(root,'logs')),files);
- }finally{if(runtime&&runtime.exitCode===null&&runtime.signalCode===null){const closed=once(runtime,'close');runtime.kill();await closed;}await delay(2700);await rm(root,{recursive:true,force:true});}
+  // Wait for actual output rather than assuming CI schedules a heartbeat in 300 ms.
+  await until(async()=>(await readFile(output,'utf8')).length>before.length);assert.deepEqual(await readdir(join(root,'logs')),files);
+ }finally{if(runtime&&runtime.exitCode===null&&runtime.signalCode===null){const closed=once(runtime,'close');runtime.kill();await closed;}await delay(6200);await rm(root,{recursive:true,force:true});}
 });
 test('Lost anchor never falls back to saved PGID signaling',{skip:process.platform!=='linux',timeout:10000},async()=>{
  const root=await mkdtemp(join(tmpdir(),'servicehost-anchor-'));const out=await open(join(root,'out'),'wx');let group;
