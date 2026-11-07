@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Add narrowly scoped Windows Herdr panel open/reconnect using non-focusing pane creation and encoded PowerShell invoking the exact Node executable, bundled CLI and config with `--connect-only`. Argument data is base64-decoded, including Unicode/apostrophes/metacharacters; package URL conversion preserves native drive/UNC paths.
+- Preserve Linux commands, runtime authentication, pane/tab/terminal identity checks, mutation locks and uncertain-launch fencing. Reconnect never injects commands; foreground readiness is not claimed. No service launcher/lifecycle redesign, Job Objects or native helper.
+- Add deterministic Windows command/URL tests, mocked Herdr transport and failure-fence tests, installed-tarball command checks and a gated native PowerShell argv test. Native Windows execution/live Herdr/TUI/focus validation remains pending; Windows service limitations are unchanged.
+
 ## 0.4.0
 
 - Register focused Pi config/host/service tools and a packaged servicehost workflow skill over the independent runtime. Loading Pi starts no services; runtime/panel remain standalone and bundled.

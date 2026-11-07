@@ -55,8 +55,12 @@ test('packed artifact installs without scripts and CLI lifecycle runs outside ch
     const {default:register}=await import(pathToFileURL(${JSON.stringify(join(packageRoot,'dist','extension.js'))}));
     const tools=[];register({registerTool:t=>tools.push(t)});console.log(tools.length);`;
   assert.equal(execFileSync(process.execPath,['--input-type=module','-e',probe],{cwd:dir,encoding:'utf8',timeout:10000}).trim(),'16');
-  const pathProbe=`import {panelCLI,panelCommand} from ${JSON.stringify(pathToFileURL(join(packageRoot,'dist','herdr.js')).href)};console.log(JSON.stringify({cli:panelCLI,command:panelCommand('/project with spaces/config.json')}));`;
+  const pathProbe=`import {panelCLI,panelCommand} from ${JSON.stringify(pathToFileURL(join(packageRoot,'dist','herdr.js')).href)};console.log(JSON.stringify({cli:panelCLI,command:panelCommand('/project with spaces/config.json',panelCLI,process.execPath,'linux'),windows:panelCommand("C:/雪 O'Brien &/config.json",panelCLI,process.execPath,'win32')}));`;
   const launch=JSON.parse(execFileSync(process.execPath,['--input-type=module','-e',pathProbe],{cwd:dir,encoding:'utf8'}));assert.equal(launch.cli,installed);assert.ok(launch.command.includes(installed));assert.match(launch.command,/--connect-only/);
+  const encoded=launch.windows.match(/^powershell\.exe -NoProfile -ExecutionPolicy Bypass -EncodedCommand ([A-Za-z0-9+/=]+)$/);assert.ok(encoded);
+  const script=Buffer.from(encoded[1],'base64').toString('utf16le');
+  const argv=[...script.matchAll(/FromBase64String\('([A-Za-z0-9+/=]+)'\)/g)].map(m=>Buffer.from(m[1],'base64').toString('utf16le'));
+  assert.deepEqual(argv,[process.execPath,installed,'panel','--connect-only','--config',"C:/雪 O'Brien &/config.json"]);
   assert.equal(existsSync(join(dir,'.servicehost')),false);
   assert.match(execFileSync(process.execPath,[installed,'--help'],{cwd:dir,encoding:'utf8',timeout:10000}),/Panel closure never stops/);
   const bin=join(dir,'install','node_modules','.bin',process.platform==='win32'?'pi-servicehost.cmd':'pi-servicehost');assert.ok(existsSync(bin));

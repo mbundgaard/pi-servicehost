@@ -2,7 +2,7 @@
 
 A project-local service runner with a detached HTTP runtime, standalone terminal panel, and **Pi extension + skill (0.4.0)**. **Linux-first, not production supervision.** Start services explicitly and leave them running when Pi or the panel closes. No services start on extension load; no continuous logs enter model context.
 
-Version **0.4.0** adds Pi integration to the same package; 0.3.0 is standalone-only. Install with `pi install npm:@comput/pi-servicehost`, then reload Pi. [Pi installation, tools and limitations](docs/pi-integration.md) describes the workflow and local testing. Explicit Linux Herdr tools open a non-focusing display or verify its recorded identity; log excerpts require sensitive-text opt-in. See the integration contract for limits. Repository: [mbundgaard/pi-servicehost](https://github.com/mbundgaard/pi-servicehost).
+Version **0.4.0** adds Pi integration to the same package; 0.3.0 is standalone-only. Install with `pi install npm:@comput/pi-servicehost`, then reload Pi. [Pi installation, tools and limitations](docs/pi-integration.md) describes the workflow and local testing. Explicit Linux/Windows Herdr tools open a non-focusing display or verify its recorded identity; log excerpts require sensitive-text opt-in. See the integration contract for limits. Repository: [mbundgaard/pi-servicehost](https://github.com/mbundgaard/pi-servicehost).
 
 ## Install and use
 
@@ -63,7 +63,7 @@ Reads and controls share one serial lane; reads refresh one second after each cy
 
 `panel --prompt` retains the command prompt; `panel --live` retains the line-oriented compact ledger. `watch` attaches without launching a runtime; `follow api [stdout|stderr]` follows one stream. These older views remain line-oriented and JSON-escape logs; `q` + Enter, EOF or Ctrl-C ends the view. Unlike the panel, their request errors exit. Non-TTY `watch`/`follow` return one JSON snapshot and exit; all panel modes require a TTY. Machine-readable commands/API are unchanged. `lastExitCode` persists across launches within this runtime (`?` unknown, `no-code` a nonnumeric exit); `exitCode` remains current-launch only.
 
-You can launch the panel manually in a Herdr terminal. Nothing configures or manipulates Herdr. See [panel design and evidence](docs/panel-design.md); visual approval and native Windows terminal testing are not claimed.
+You can launch the panel manually in a Herdr terminal. Explicit Pi panel tools can also create a non-focusing Linux/Windows Herdr pane or verify its recorded identity; nothing manipulates Herdr on extension load. Windows uses encoded PowerShell to invoke the exact Node executable and bundled CLI with `--connect-only`, not npm/cmd shims. This narrow panel adapter does not change Windows service/lifecycle limitations; native Windows live Herdr validation remains pending. See the [display contract](docs/pi-integration.md#herdr-display-contract-linux-and-windows). See [panel design and evidence](docs/panel-design.md); visual approval and native Windows terminal testing are not claimed.
 
 Every command accepts `--config /path/to/ServiceHost.json`. Config directories and executable paths containing separators resolve relative to the config file; bare executable names use PATH. Native executable arguments are passed without shell expansion and are interpreted by the child relative to its working directory. Windows batch launches use the restricted grammar below. `port` is optional and is **TCP discovery**, not a readiness or health assertion. Services never auto-start.
 

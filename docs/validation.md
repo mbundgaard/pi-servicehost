@@ -1,5 +1,12 @@
 # Validation record
 
+## Windows Herdr panel increment (local Linux, Unreleased)
+
+- `npm run typecheck` passed. `npm test`: **49 tests, 47 passed, 2 Windows-native skipped, 0 failures**. `npm run check:package`: **2/2 passed**, unchanged exact 28-file/16-module allowlist, installed-tarball checks and pack dry run. `git diff --check` passed.
+- Deterministic tests decode the fixed PowerShell grammar and verify exact argv including spaces, Unicode, apostrophes, smart quotes and shell metacharacters; drive/UNC package URL conversion is tested. Mock Windows Herdr transport exercises complete open → persisted submission → reconnect/reopen without input, terminal replacement refusal and lost split/rename/run acknowledgement fences. The installed tarball is imported outside the checkout to verify its own bundled CLI and exact Node path in the Windows command.
+- Consulted sibling Intercom launcher/monitor code read-only and installed `herdr pane split --help` / `pane run --help` for command contracts. No real Herdr mutation, real service, worker, external message, version bump, commit, push or publication. No Pi host API change or service/runtime lifecycle redesign.
+- The new native Windows test uses Windows PowerShell to run only a disposable Node argv recorder (not Herdr or a service). It and the existing Windows service execution test are gated and skipped on this Linux host. **Native Windows PowerShell execution, live Herdr pane opening/reconnect/non-focus, TUI behavior and console-close behavior remain unverified here.** Deterministic/mocked Linux checks are not a Windows live smoke or proof of foreground readiness. Windows service limitations are unchanged.
+
 ## Pi integration increment (local Linux, Unreleased)
 
 - `npm run typecheck` passed against pinned Pi 1.0.4 declarations.
