@@ -1,6 +1,6 @@
 {
   "name": "@comput/pi-servicehost",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Project-local service runtime, Pi tools and skill, and standalone terminal panel",
   "license": "MIT",
   "author": "Martin Bundgaard",
@@ -29,7 +29,7 @@
   },
   "pi": {
     "extensions": [
-      "./dist/extension.js"
+      "./dist/extension.ts"
     ],
     "skills": [
       "./skills"
@@ -40,6 +40,7 @@
     "typebox": "*"
   },
   "files": [
+    "dist/*.ts",
     "dist/extension.js",
     "dist/integration.js",
     "dist/herdr.js",
@@ -47,6 +48,7 @@
     "dist/config-store.js",
     "skills/servicehost/SKILL.md",
     "docs/pi-integration.md",
+    "docs/extension-loading.md",
     "dist/cli.js",
     "dist/client.js",
     "dist/config.js",
@@ -77,7 +79,7 @@
     "provenance": true
   },
   "scripts": {
-    "build": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\" && tsc",
+    "build": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\" && tsc && node scripts/build-extension.mjs",
     "typecheck": "tsc --noEmit",
     "test": "npm run build && node --test tests/*.test.mjs",
     "prepack": "npm run build",

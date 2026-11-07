@@ -1,5 +1,21 @@
 # Validation record
 
+## 0.6.0 release validation
+
+- Coordinator reran typecheck, full tests and installed-package checks after all workers finished: **134 passed, 2 Windows-native skipped, 0 failed**. Package allowlist: 44 files. `git diff --check` passed.
+- Coverage includes actual Pi loader upgrade regressions, visible host-start success/failure, split-above/new-tab placement, pending mutation fences, and buffered log scrolling with PTY keyboard checks.
+- An earlier overlapping build removed `dist` while another test run was executing. That run was discarded; the final validation above ran sequentially after worker settlement.
+- No live Windows or new-Herdr visual result is inferred from these automated checks.
+
+
+## Above-caller placement correction (local Linux)
+
+- Installed `herdr-app --version` / `--skill` / `commands` and `herdr-core --version` / `schema` confirm app **0.1.13**, core **0.1.18**. No live user pane was mutated. App `pane.split` accepts only right/down; `pane.swap` has only a direction and depends on focus. App `layout.set` edits window chrome, not tab pane trees. No fictitious `up` API is used.
+- Supported replacement: core schema documents `doc.set` as an atomic version-checked opaque document write that emits a doc event. App [mirror_sync.rs](https://github.com/herdrdev/herdr-app/blob/v0.1.13/src/mirror_sync.rs) uses that exact public API; [window.rs](https://github.com/herdrdev/herdr-app/blob/v0.1.13/src/window.rs) `documents_updated` consumes changed versions into the model; [layout.rs](https://github.com/herdrdev/herdr-app/blob/v0.1.13/src/layout.rs) `split` inserts after the caller in a column (reusing a same-axis parent). The adapter changes only those adjacent exact-ID leaves using one CAS and verifies above ordering in core and the app inventory before success.
+- Legacy [v0.9.5 CLI reference](https://github.com/herdrdev/herdr/blob/v0.9.5/docs/next/website/src/content/docs/cli-reference.mdx) likewise lists right/down only, but explicitly supports `pane swap --source-pane ID --target-pane ID`. Version-tagged `src/cli/pane.rs`, `src/api/schema/panes.rs` and `src/app/api/panes.rs` confirm exact IDs, focus preservation and returned layout rectangles. The adapter checks that response's exact IDs and above geometry before shell submission.
+- Creation, reorder and verification are separately fenced. No focus-based swaps, automatic mutation retry, live pane mutation, runtime/service-management edits or native Windows visual verification. A failure can leave the intermediate lower pane fenced; it is not success. Existing submitted records remain reused in place, including old below-caller records; tabs are unchanged.
+- `npm run build`, `npm run typecheck` and `git diff --check` passed. Focused adapter suite: **91 tests, 90 passed, 1 native Windows skipped, 0 failures**. Full `npm test` on the shared working tree: **134 tests, 132 passed, 2 Windows-native skipped, 0 failures**. Includes top layout assertions, preservation of unrelated column nodes, CAS conflict/lost/invalid acknowledgement, stale app/core ordering, invalid pair, legacy wrong target/no-op/below/lost swap and read-only fenced reopen/reconnect. A disposable socket/pipe server exercises the production CAS transport; delayed observations do not repeat its write. These are source-derived fixtures, not a live visual smoke.
+
 ## Herdr app/core architecture increment (local Linux)
 
 - `npm run typecheck` passed. `npm test`: **84 tests, 82 passed, 2 Windows-native skipped, 0 failures**. `npm run check:package`: **2/2 passed**, exact **29-file / 17-module** allowlist, actual installed tarball outside checkout and pack dry run. `git diff --check` passed. No version bump; package remains 0.4.1 until separately released.

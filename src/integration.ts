@@ -5,8 +5,11 @@ import { request, up } from './client.js';
 import { herdrPanel } from './herdr.js';
 import { safeText } from './watch.js';
 
-export async function perform(operation:string, p:any, cwd:string, signal?:AbortSignal):Promise<unknown> {
+// Test seam only; the registered tool always uses the real Herdr adapter.
+export async function perform(operation:string, p:any, cwd:string, signal?:AbortSignal, panel:typeof herdrPanel=herdrPanel):Promise<unknown> {
   signal?.throwIfAborted();
+  if(operation==='panel_open'||operation==='host_start')demand(p.placement===undefined||p.placement==='split'||p.placement==='tab','Invalid panel placement');
+  if(operation==='panel_reconnect')demand(p.placement===undefined,'Reconnect does not accept placement');
   const path=resolve(cwd,p.configPath??'ServiceHost.json');
   if(operation==='config_inspect'||operation==='config_validate') return inspectConfig(path);
   if(operation==='config_create') return saveConfig(path,p.configuration);
@@ -15,12 +18,30 @@ export async function perform(operation:string, p:any, cwd:string, signal?:Abort
     return saveConfig(path,p.configuration,p.revision);
   }
   const c=await loadConfig(path);
-  if(operation==='host_start') return up(c);
+  if(operation==='host_start') {
+    const runtime=await up(c);
+    try {
+      const display=await panel(c,false,{placement:p.placement??'split'});
+      return {...runtime,panel:display};
+    } catch {
+      // Keep the runtime/services intact. Recheck identity, never replay a launch.
+      let runtimeRunning:boolean|null=null;
+      try {await request(c,{action:'ping'});runtimeRunning=true;} catch { /* unavailable is not proof of shutdown */ }
+      throw new SafeError(JSON.stringify({
+        error:'host_start_panel_failed',runtimeRunning,
+        runtimeStatus:runtimeRunning?'identity-verified':'unconfirmed',
+        runtimeStarted:!runtime.existing,existing:runtime.existing,
+        project:c.id,configPath:c.file,apiPort:c.apiPort,
+        panel:{error:'Herdr panel unavailable, identity mismatch or launch uncertain. Inspect <config>.panel.json and Herdr panes before manual recovery; no automatic retry, replacement or cleanup'},
+        notice:'Runtime and services were not stopped. Inspect host_status and the recorded display before retrying; a panel launch may have completed.',
+      }));
+    }
+  }
   const call=async(body:unknown,abort=signal)=>{
     try {return await request(c,body,abort);} catch {throw new SafeError('Runtime request refused, unavailable or outcome uncertain; inspect status before retrying. No automatic fallback');}
   };
   await call({action:'ping'});
-  if(operation==='panel_open'||operation==='panel_reconnect') return herdrPanel(c,operation==='panel_reconnect');
+  if(operation==='panel_open'||operation==='panel_reconnect') return panel(c,operation==='panel_reconnect',{placement:p.placement});
   if(operation==='host_status') return {running:true,project:c.id,apiPort:c.apiPort,configPath:c.file};
   if(operation==='host_shutdown') {await call({action:'shutdown'});return {shutdownRequested:true,project:c.id};}
   demand(c.services.some(s=>s.name===p.name),'Unknown service');

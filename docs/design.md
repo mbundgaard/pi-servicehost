@@ -13,7 +13,7 @@ Modules:
 - `src/client.ts`: identity-checked connection and detached runtime launch, append-only runtime diagnostic log.
 - `src/cli.ts`: commands, panel dispatch and retained `--prompt` mode.
 - `src/herdr.ts`: explicit environment-identity backend selection and preserved v0.4.1 legacy transport, including Windows encoded PowerShell/data quoting.
-- `src/herdr-app.ts`: app/core display adapter; direct bounded read-only core socket/named-pipe RPC, unique local caller mapping against app inventory/core document and labels, exact direct Node argv split, version-2 backend/core/app launch records and pending fences. No auto-start or backend fallback. New split changes tab focus/zoom; reconnect is read-only.
+- `src/herdr-app.ts`: app/core display adapter; bounded core socket/named-pipe observations and one version-checked document write for above placement. Unique local caller mapping against app inventory/core document and labels; exact direct Node argv split followed by an exact-ID adjacent-child reorder, with persisted creation/reorder/verification fences. Named tabs retain their separate creation path. No auto-start or backend fallback. New split changes tab focus/zoom; reconnect is read-only.
 - `src/panel.ts`: default interactive alternate-screen panel; pure layout helpers, bounded log caches, key mapping, serial authenticated request controller and terminal restoration.
 - `src/readiness.ts`: opt-in, per-launch bounded loopback HTTP startup observation; cancellation only, never lifecycle authority.
 - `src/logs.ts`: bounded dry-run inventory; no deletion because escaped descriptor holders cannot be ruled out.

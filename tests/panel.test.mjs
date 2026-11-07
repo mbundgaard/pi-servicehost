@@ -73,6 +73,46 @@ test('bounded stream ring preserves partial lines, cursors, reset and clear with
  b.append('stdout',{text:'fresh\n',cursor:10,reset:true});assert.match(b.rows[0].text,/new launch/);
  b.append('stderr',{text:('a'.repeat(5000)+'\n').repeat(600),cursor:11});assert.equal(b.rows.length,500);assert.ok(b.rows.every(r=>r.text.length<=4096));
 });
+test('anchored history survives appends and drain, clamps pruning and resizing, clear resumes live',()=>{
+ const b=new LogBuffer();const append=(text,reset=false)=>b.append('stdout',{text,cursor:1,reset});
+ assert.deepEqual(b.view(5),[]);b.scroll('home');append('');assert.deepEqual(b.view(5),[]);
+ append('\npartial');assert.deepEqual(b.view(5).map(r=>r.text),['','partial']);
+ append(' completed\n\n');assert.deepEqual(b.view(5).map(r=>r.text),['','partial completed','']);
+ b.clear();append(Array.from({length:40},(_,i)=>`line-${i}\n`).join(''));
+ assert.equal(b.view(5)[0].text,'line-35');b.scroll('pageup');assert.equal(b.following,false);
+ const held=b.view(5).map(r=>r.text);assert.equal(held[0],'line-31');
+ append('new partial');append('');append(' drained\nnext\n');assert.deepEqual(b.view(5).map(r=>r.text),held);
+ append('restarted\n',true);assert.deepEqual(b.view(5).map(r=>r.text),held);assert.equal(b.following,false);
+ assert.ok(b.rows.some(r=>/new launch/.test(r.text)));
+ b.scroll('home');assert.equal(b.view(5)[0].text,'line-0');
+ append(Array.from({length:600},(_,i)=>`new-${i}\n`).join(''));
+ assert.equal(b.rows.length,500);assert.equal(b.view(5)[0].text,'new-100');assert.equal(b.pruned,true);
+ b.scroll('end');assert.equal(b.following,true);assert.equal(b.pruned,false);assert.equal(b.view(5)[0].text,'new-595');
+ b.scroll('pageup');assert.equal(b.view(20)[0].text,'new-580');assert.equal(b.view(2)[0].text,'new-580');
+ b.scroll('pagedown');assert.equal(b.following,false);b.view(500);assert.equal(b.view(500).length,500);
+ b.scroll('pagedown');assert.equal(b.following,true);assert.deepEqual(b.view(0),[]);
+ b.scroll('home');b.clear();assert.equal(b.following,true);assert.equal(b.pruned,false);assert.deepEqual(b.view(5),[]);
+});
+test('rendered log viewport keys preserve service state, selection/actions and help isolation',()=>{
+ const s=fixture();const b=s.logs.get('api');b.clear();
+ b.append('stdout',{text:Array.from({length:80},(_,i)=>`row-${i}\n`).join(''),cursor:80});
+ const frame=()=>renderPanel(s,80,16,'x',false);
+ const logs=()=>frame().filter(r=>r.startsWith('out  '));
+ assert.equal(logs().length,10);assert.match(logs()[0],/row-70/);
+ handleKey(s,{name:'pageup'});assert.match(logs()[0],/row-61/);const held=logs();assert.match(frame().at(-1),/paused/);
+ b.append('stdout',{text:'more\n',cursor:81});assert.deepEqual(logs(),held);
+ handleKey(s,{name:'down'});assert.equal(s.selected,'worker');handleKey(s,{name:'up'});assert.deepEqual(logs(),held);
+ handleKey(s,{name:'f2'});handleKey(s,{name:'f2'});handleKey(s,{name:'f2'});assert.deepEqual(logs(),held);
+ handleKey(s,{name:'f1'});for(const name of ['pageup','pagedown','home','end','f3','f4'])assert.equal(handleKey(s,{name}),undefined);
+ handleKey(s,{name:'down'});assert.equal(s.infoOffset,1);handleKey(s,{name:'escape'});assert.deepEqual(logs(),held);
+ handleKey(s,{name:'home'});assert.match(logs()[0],/row-0 /);handleKey(s,{name:'pagedown'});assert.match(logs()[0],/row-9 /);
+ handleKey(s,{name:'end'});assert.equal(b.following,true);assert.match(logs().at(-1),/more/);assert.match(frame().at(-1),/live/);
+ handleKey(s,{name:'pageup'});handleKey(s,{name:'f6'});assert.equal(logs().length,14);
+ for(const [w,h] of [[32,8],[48,10],[100,28],[80,16]]){const rows=renderPanel(s,w,h,'x',false);assert.equal(rows.length,h);assert.ok(rows.every(r=>textWidth(r)===w));}
+ handleKey(s,{name:'home'});b.append('stdout',{text:'overflow\n'.repeat(600),cursor:900});assert.match(frame().at(-1),/paused \(pruned\)/);
+ handleKey(s,{name:'l',ctrl:true});assert.equal(b.following,true);assert.match(frame().join('\n'),/View cleared/);
+ s.info=true;const help=[];for(let i=0;i<30;i++){help.push(...frame());handleKey(s,{name:'down'});}assert.match(help.join('\n'),/Home oldest/);assert.match(help.join('\n'),/500 buffered lines/);
+});
 test('selection persists by name; legacy keys map safely; info never invokes actions',()=>{
  const s=fixture();handleKey(s,{name:'down'});assert.equal(s.selected,'worker');updateServices(s,[services[2],services[1],services[0]]);assert.equal(s.selected,'worker');
  assert.equal(handleKey(s,{name:'f3'}),'start');handleKey(s,{name:'f2'});assert.equal(s.selected,'api');assert.equal(handleKey(s,{name:'f3'}),'stop');assert.equal(handleKey(s,{name:'f4'}),'restart');

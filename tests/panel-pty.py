@@ -29,7 +29,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         elif action == 'status': result = {'services':[
             {'name':'api','state':'running','readiness':'ready','output':'available','pid':12345,'port':3000},
             {'name':'worker','state':'stopped','readiness':'inactive','output':'unavailable'}]}
-        elif action == 'log-follow': result = {'text':'' if body.get('cursor') else 'pty-live\n\x1b]52;c;hostile\x07hello 仕事\n', 'cursor':{'offset':32,'launchId':'a'*24}}
+        elif action == 'log-follow': result = {'text':'' if body.get('cursor') else ''.join('history-%02d\n' % i for i in range(60)) + 'pty-live\n\x1b]52;c;hostile\x07hello 仕事\n', 'cursor':{'offset':32,'launchId':'a'*24}}
         else:
             assert action in ('stop','restart')
             time.sleep(.15)
@@ -63,6 +63,21 @@ with tempfile.TemporaryDirectory(prefix='servicehost-panel-pty-') as root:
                 assert ('─' * 80).encode() in output
                 assert b'Connected.' not in output and b'live output' not in output
                 if mode == 'keys':
+                    initial_output = output
+                    output = b''
+                    os.write(master,b'\x1b[5~') # PageUp
+                    until(b'paused')
+                    output = b''
+                    os.write(master,b'\x1b[H') # Home
+                    until(b'\x1b[4;1Hout  history-00')
+                    output = b''
+                    os.write(master,b'\x1b[6~') # PageDown
+                    until(b'\x1b[4;1Hout  history-18')
+                    output = b''
+                    os.write(master,b'\x1b[F') # End
+                    until(b'pty-live')
+                    until(b'live v')
+                    output = initial_output + output
                     os.write(master,b'\x1bOP') # F1
                     until(b'Ownership:')
                     os.write(master,b'\x1bOP')

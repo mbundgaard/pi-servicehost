@@ -29,10 +29,12 @@ export function panelCommand(file:string,cli=panelCLI,node=process.execPath,plat
 }
 type Run=(args:string[])=>Promise<string>;
 const run:Run=async args=>(await promisify(execFile)('herdr',args,{timeout:10000,maxBuffer:1024*1024})).stdout;
-interface State {version:1;project:string;workspace:string;marker:string;stage:string;pane?:string;tab?:string;terminal?:string}
+interface State {version:1|3;backend?:'legacy';placement?:'split'|'tab';callerTab?:string;project:string;workspace:string;marker:string;stage:string;pane?:string;tab?:string;terminal?:string}
 /** No shell injection on reconnect. A submitted record verifies only display identity,
  * not the current foreground program. Pending/crashed records require manual recovery. */
 export async function herdrPanel(c:Config,reconnect:boolean,options:AppOptions&{run?:Run}={}) {
+  demand(options.placement===undefined||options.placement==='split'||options.placement==='tab','Invalid panel placement');
+  demand(!reconnect||options.placement===undefined,'Reconnect does not accept placement');
   const env=options.env??process.env;
   const platform=options.platform??process.platform;
   demand(platform==='linux'||platform==='win32','Herdr panel automation supports Linux and Windows only');
@@ -43,11 +45,12 @@ export async function herdrPanel(c:Config,reconnect:boolean,options:AppOptions&{
   return legacyPanel(c,reconnect,options);
 }
 
-async function legacyPanel(c:Config,reconnect:boolean,options:{run?:Run;env?:NodeJS.ProcessEnv;platform?:string}={}) {
+async function legacyPanel(c:Config,reconnect:boolean,options:AppOptions&{run?:Run}={}) {
   const platform=options.platform??process.platform;
   demand(platform==='linux'||platform==='win32','Herdr panel automation supports Linux and Windows only');
   const env=options.env??process.env;
   demand(env.HERDR_ENV==='1'&&!!env.HERDR_PANE_ID,'Herdr panel requires an explicit managed caller pane');
+  const placement=options.placement??'split';
   const execute=options.run??run;
   const call=async(args:string[])=>{const text=await execute(args);return !text.trim()&&args[1]==='run'?{}:JSON.parse(text).result;};
   const file=c.file+'.panel.json';
@@ -68,27 +71,44 @@ async function legacyPanel(c:Config,reconnect:boolean,options:{run?:Run;env?:Nod
         return panes;
       };
       if(state) {
-        demand(state.version===1&&state.project===c.id&&state.workspace===caller.workspace_id&&state.stage==='submitted'&&typeof state.marker==='string'&&state.marker.startsWith('ServiceHost ')&&typeof state.pane==='string'&&typeof state.tab==='string'&&typeof state.terminal==='string','Panel record uncertain or mismatched; inspect before manual recovery, no duplicate launch');
+        demand((state.version===1&&state.placement===undefined||(state.version===3&&state.backend==='legacy'&&(state.placement==='split'||state.placement==='tab')&&typeof state.callerTab==='string'&&(state.placement==='tab'?state.tab!==state.callerTab:state.tab===state.callerTab)))&&state.project===c.id&&state.workspace===caller.workspace_id&&state.stage==='submitted'&&typeof state.marker==='string'&&state.marker.startsWith('ServiceHost ')&&typeof state.pane==='string'&&typeof state.tab==='string'&&typeof state.terminal==='string','Panel record uncertain or mismatched; inspect before manual recovery, no duplicate launch');
         const matches=(await inventory()).filter(p=>p.pane_id===state!.pane||p.label===state!.marker);
         demand(matches.length===1&&matches[0].pane_id===state.pane&&matches[0].tab_id===state.tab&&matches[0].terminal_id===state.terminal&&matches[0].label===state.marker,'Recorded panel identity missing or ambiguous; no replacement or injection');
-        return {pane:state.pane,tab:state.tab,outcome:'existing display verified; foreground process and panel readiness not verified',runtimeStarted:false};
+        return {placement:state.placement??'split',focusChanged:false,pane:state.pane,tab:state.tab,outcome:'existing display verified; foreground process and panel readiness not verified',runtimeStarted:false};
       }
       demand(!reconnect,'No recorded panel; explicitly open a display first');
       await access(panelCLI);
-      await inventory();
-      state={version:1,project:c.id,workspace:caller.workspace_id,marker:'ServiceHost '+randomUUID(),stage:'split_pending'};
+      const before=await inventory();
+      state={version:3,backend:'legacy',placement,callerTab:caller.tab_id,project:c.id,workspace:caller.workspace_id,marker:'ServiceHost '+randomUUID(),stage:placement==='tab'?'tab_pending':'split_pending'};
       await save();
-      const pane=(await call(['pane','split','--pane',caller.pane_id,'--direction','down','--cwd',(platform==='win32'?win32.dirname:dirname)(c.file),'--no-focus']))?.pane;
-      demand(typeof pane?.pane_id==='string'&&pane.pane_id!==caller.pane_id&&pane.tab_id===caller.tab_id,'Split returned invalid pane identity');
-      state.pane=pane.pane_id;state.tab=pane.tab_id;state.stage='identity_pending';await save();
+      const cwd=(platform==='win32'?win32.dirname:dirname)(c.file);
+      const created=await call(placement==='tab'?['tab','create','--workspace',caller.workspace_id,'--cwd',cwd,'--label','ServiceHost','--no-focus']:['pane','split','--pane',caller.pane_id,'--direction','down','--cwd',cwd,'--no-focus']);
+      const pane=placement==='tab'?created?.root_pane:created?.pane;
+      const tab=placement==='tab'?created?.tab?.tab_id:pane?.tab_id;
+      demand(typeof pane?.pane_id==='string'&&pane.pane_id!==caller.pane_id&&!before.some(p=>p.pane_id===pane.pane_id)&&typeof tab==='string'&&(placement==='tab'?tab!==caller.tab_id&&!before.some(p=>p.tab_id===tab):tab===caller.tab_id),'Creation returned invalid pane identity');
+      state.pane=pane.pane_id;state.tab=tab;state.stage='identity_pending';await save();
       const matches=(await inventory()).filter(p=>p.pane_id===state!.pane);
       demand(matches.length===1&&matches[0].tab_id===state.tab,'Created pane identity unavailable');
-      state.terminal=matches[0].terminal_id;state.stage='rename_pending';await save();
+      state.terminal=matches[0].terminal_id;
+      if(placement==='split') {
+        // Legacy v0.9.5 supports exact source/target IDs, not an "up" split.
+        // Never use the focus-dependent/directional swap variant.
+        state.stage='reorder_pending';await save();
+        const swapped=await call(['pane','swap','--source-pane',state.pane!,'--target-pane',caller.pane_id]);
+        demand(swapped?.changed===true&&swapped.source_pane_id===state.pane&&swapped.target_pane_id===caller.pane_id,'Invalid exact-ID swap acknowledgement');
+        const layout=swapped.layout;
+        demand(layout?.workspace_id===caller.workspace_id&&layout.tab_id===caller.tab_id&&Array.isArray(layout.panes),'Missing swapped layout');
+        const top=layout.panes.filter((p:any)=>p.pane_id===state!.pane),bottom=layout.panes.filter((p:any)=>p.pane_id===caller.pane_id);
+        demand(top.length===1&&bottom.length===1,'Ambiguous swapped panes');
+        const a=top[0].rect,b=bottom[0].rect;
+        demand(a&&b&&[a.x,a.y,a.width,a.height,b.x,b.y,b.width,b.height].every(n=>Number.isSafeInteger(n)&&n>=0)&&a.width>0&&a.height>0&&b.height>0&&a.x===b.x&&a.width===b.width&&a.y+a.height<=b.y,'Panel not above caller');
+      }
+      state.stage='rename_pending';await save();
       await call(['pane','rename',state.pane!,state.marker]);
       state.stage='run_pending';await save();
       await call(['pane','run',state.pane!,panelCommand(c.file,panelCLI,process.execPath,platform)]);
       state.stage='submitted';await save();
-      return {pane:state.pane,tab:state.tab,outcome:'panel command submitted; readiness not verified',runtimeStarted:false};
+      return {placement,focusChanged:false,pane:state.pane,tab:state.tab,outcome:'panel command submitted; readiness not verified',runtimeStarted:false};
     } catch {throw new SafeError('Herdr panel unavailable, identity mismatch or launch uncertain. Inspect <config>.panel.json and panes before manual recovery; no automatic retry, replacement or cleanup');}
   });
 }

@@ -10,7 +10,7 @@ const descriptions:Record<string,string>={
   config_validate:'Validate existing configuration without starting anything; returns safe metadata.',
   config_create:'Create a validated configuration with an explicit authoritative apiPort. Never overwrites an existing config. Inspect the project first; use credential placeholders, not secrets.',
   config_update:'Atomically replace configuration using the inspected revision. Refuses active/unreconciled runtimes and concurrent changes. Editing apiPort never moves a listener.',
-  host_start:'Explicitly start or identity-verify the independent runtime at configured apiPort. No services auto-start, no port fallback or process killing. Returns project, config path and bound port.',
+  host_start:'Explicitly start/connect the independent runtime at configured apiPort AND open/reuse its visible Herdr panel. Optional placement split (default, above caller) or tab applies only to creation. No services auto-start, port fallback or process killing. Panel failure reports runtime status and config identity as an error; inspect before retrying.',
   host_status:'Verify the runtime identity on configured apiPort. No launch or fallback.',
   host_shutdown:'Request runtime shutdown; fails while owned services/groups remain. Stop each service first. Uncertain outcomes must not be blindly retried.',
   service_status:'Inspect one hosted service without args, env or logs.',
@@ -20,7 +20,7 @@ const descriptions:Record<string,string>={
   service_wait:'Wait at most timeoutMs (100–30000) for startup readiness to leave pending. Not continuous health, no lifecycle changes.',
   service_logs:'Inspect bounded logs. includeText:true explicitly acknowledges potentially sensitive application output entering model context; use only for authorized log diagnosis. No credential files are read and no secret-free guarantee. Default metadata only.',
   service_discover:'Inspect configured TCP listener identities; observation grants no stop authority or automatic adoption.',
-  panel_open:'Explicitly open a Linux/Windows Herdr display for an already-running host, or verify its record. New app/core splits the caller pane and changes tab focus; legacy Herdr preserves focus. No runtime auto-start or backend fallback. Uncertain launches need manual inspection.',
+  panel_open:'Explicitly open a Linux/Windows Herdr display for an already-running host, or verify its record. Placement split (default) splits above the caller; tab creates a named ServiceHost tab in its space/workspace. Existing records are reused in place regardless of placement. New app/core changes focus; legacy preserves focus. No runtime auto-start or backend fallback. Uncertain launches need manual inspection.',
   panel_reconnect:'Verify recorded Linux/Windows Herdr backend, display identity and runtime connection, without shell input, focus changes, replacement or runtime launch. Display presence and launch argv are not foreground process readiness.',
 };
 export default function extension(pi:ExtensionAPI) {
@@ -29,6 +29,7 @@ export default function extension(pi:ExtensionAPI) {
     if(operation.startsWith('service_'))fields.name=Type.String({pattern:'^[a-zA-Z0-9_-]{1,64}$'});
     if(operation==='config_create'||operation==='config_update')fields.configuration=Type.Unknown({description:'Full ServiceHost configuration: apiPort, logDirectory, services. Use credential placeholders; never supply credential contents.'});
     if(operation==='config_update')fields.revision=Type.String({pattern:'^[a-f0-9]{64}$'});
+    if(operation==='panel_open'||operation==='host_start')fields.placement=Type.Optional(Type.String({enum:['split','tab'],description:'Creation only: split above caller (default), or named ServiceHost tab in caller space/workspace. Existing display is reused in place.'}));
     if(operation==='service_wait')fields.timeoutMs=Type.Optional(Type.Integer({minimum:100,maximum:30000}));
     if(operation==='service_logs'){
       fields.includeText=Type.Optional(Type.Boolean({description:'Explicit sensitive-log opt-in: application text may contain secrets and enters model context. Only for authorized debugging.'}));

@@ -17,15 +17,16 @@ async function ttyView(bin,args,cwd,marker,wait=0,keys='q\n'){
   child.once('close',code=>{clearTimeout(timer);code===0&&sent?resolve():reject(Error('PTY view failed'));});
  });return output;
 }
-test('package is standalone compiled JS and excludes legacy, credentials and runtime',()=>{
+test('package has a standalone compiled CLI and reloadable TS extension; excludes credentials and state',()=>{
  assert.ok(process.env.npm_execpath,'Run package tests through npm scripts');
  const output=execFileSync(process.execPath,[process.env.npm_execpath,'pack','--dry-run','--ignore-scripts','--json'],{encoding:'utf8'});
  const [pkg]=JSON.parse(output);const files=pkg.files.map(f=>f.path);
  const expected=['package.json','README.md','LICENSE','CHANGELOG.md','ServiceHost.example.json',
-  'docs/design.md','docs/panel-design.md','docs/validation.md','docs/windows-lifecycle.md','docs/release.md','docs/pi-integration.md','skills/servicehost/SKILL.md',
-  ...['cli','client','config','config-store','integration','herdr','herdr-app','extension','runtime','readiness','logs','watch','panel','platform','linux-group','linux-group-helper','windows-launch'].map(n=>`dist/${n}.js`)];
- assert.deepEqual(files.sort(),expected.sort(),'Only reviewed files may ship; no references, source, tests, secrets or state');
- const p=JSON.parse(readFileSync('package.json','utf8'));assert.equal(p.bin['pi-servicehost'],'dist/cli.js');assert.ok(!p.dependencies);assert.deepEqual(p.pi,{extensions:['./dist/extension.js'],skills:['./skills']});assert.deepEqual(p.peerDependencies,{'@earendil-works/pi-coding-agent':'*',typebox:'*'});
+  'docs/design.md','docs/panel-design.md','docs/validation.md','docs/windows-lifecycle.md','docs/release.md','docs/pi-integration.md','docs/extension-loading.md','skills/servicehost/SKILL.md',
+  ...['cli','client','config','config-store','integration','herdr','herdr-app','extension','runtime','readiness','logs','watch','panel','platform','linux-group','linux-group-helper','windows-launch'].map(n=>`dist/${n}.js`),
+  ...['client','config','config-store','integration','herdr','herdr-app','extension','runtime','readiness','logs','watch','platform','linux-group','windows-launch'].map(n=>`dist/${n}.ts`)];
+ assert.deepEqual(files.sort(),expected.sort(),'Only reviewed files may ship; no references, build scripts, tests, secrets or state');
+ const p=JSON.parse(readFileSync('package.json','utf8'));assert.equal(p.bin['pi-servicehost'],'dist/cli.js');assert.ok(!p.dependencies);assert.deepEqual(p.pi,{extensions:['./dist/extension.ts'],skills:['./skills']});assert.deepEqual(p.peerDependencies,{'@earendil-works/pi-coding-agent':'*',typebox:'*'});
  assert.equal(p.name,'@comput/pi-servicehost');assert.equal(p.license,'MIT');
  assert.match(p.repository.url,/^git\+https:\/\/github\.com\/[A-Za-z0-9_-]+\/pi-servicehost\.git$/);
  const repo=p.repository.url.replace(/^git\+/,'').replace(/\.git$/,'');
@@ -54,7 +55,12 @@ test('packed artifact installs without scripts and CLI lifecycle runs outside ch
   const probe=`import {registerHooks} from 'node:module';import {pathToFileURL} from 'node:url';
     registerHooks({resolve(s,c,next){if(s==='@earendil-works/pi-coding-agent')return {url:${JSON.stringify(mockHost)},shortCircuit:true};if(s==='typebox')return {url:${JSON.stringify(import.meta.resolve('typebox'))},shortCircuit:true};return next(s,c)}});
     const {default:register}=await import(pathToFileURL(${JSON.stringify(join(packageRoot,'dist','extension.js'))}));
-    const tools=[];register({registerTool:t=>tools.push(t)});console.log(tools.length);`;
+    const tools=[];register({registerTool:t=>tools.push(t)});
+    const open=tools.find(t=>t.name==='servicehost_panel_open').parameters;
+    if(JSON.stringify(open.properties.placement.enum)!==JSON.stringify(['split','tab'])||open.required?.includes('placement')||tools.find(t=>t.name==='servicehost_panel_reconnect').parameters.properties.placement)throw Error('Invalid placement schema');
+    const start=tools.find(t=>t.name==='servicehost_host_start');
+    if(JSON.stringify(start.parameters.properties.placement.enum)!==JSON.stringify(['split','tab'])||start.parameters.required?.includes('placement')||!start.description.includes('visible Herdr panel'))throw Error('Invalid visible host start contract');
+    console.log(tools.length);`;
   assert.equal(execFileSync(process.execPath,['--input-type=module','-e',probe],{cwd:dir,encoding:'utf8',timeout:10000}).trim(),'16');
   const directProbe=`import {directPanelArgv} from ${JSON.stringify(pathToFileURL(join(packageRoot,'dist','herdr-app.js')).href)};console.log(JSON.stringify(directPanelArgv('C:/雪 config.json',${JSON.stringify(installed)})));`;
   assert.deepEqual(JSON.parse(execFileSync(process.execPath,['--input-type=module','-e',directProbe],{cwd:dir,encoding:'utf8'})),[process.execPath,installed,'panel','--connect-only','--config','C:/雪 config.json']);

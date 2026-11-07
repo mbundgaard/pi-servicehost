@@ -2,13 +2,72 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {mkdtemp,rm,readFile,writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
-import {join,win32} from 'node:path';
+import {join,win32,dirname} from 'node:path';
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 import {herdrPanel,panelCommand,panelCLI,panelCLIFrom} from '../dist/herdr.js';
 const env={HERDR_ENV:'1',HERDR_PANE_ID:'w:p1'};
 async function fixture(){const root=await mkdtemp(join(tmpdir(),'panel-'));const c={file:join(root,'ServiceHost.json'),id:'project'};const caller={pane_id:'w:p1',tab_id:'w:t1',workspace_id:'w',terminal_id:'term1'};const pane={pane_id:'w:p2',tab_id:'w:t1',workspace_id:'w',terminal_id:'term2'};const calls=[];let created=false;
- const run=async a=>{calls.push(a);let result={};if(a[1]==='current')result={pane:caller};if(a[1]==='list')result={panes:created?[caller,pane]:[caller]};if(a[1]==='split'){created=true;result={pane};}if(a[1]==='rename')pane.label=a[3];if(a[1]==='run')return '';return JSON.stringify({result});};return {root,c,pane,calls,run};}
+ const run=async a=>{calls.push(a);let result={};if(a[1]==='current')result={pane:caller};if(a[1]==='list')result={panes:created?[caller,pane]:[caller]};if(a[1]==='split'){created=true;result={pane};}if(a[0]==='tab'&&a[1]==='create'){created=true;pane.tab_id='w:t2';result={tab:{tab_id:pane.tab_id},root_pane:{pane_id:pane.pane_id}};}if(a[1]==='swap'){assert.deepEqual(a,['pane','swap','--source-pane',pane.pane_id,'--target-pane',caller.pane_id]);result={changed:true,source_pane_id:pane.pane_id,target_pane_id:caller.pane_id,layout:{workspace_id:'w',tab_id:'w:t1',panes:[{pane_id:pane.pane_id,rect:{x:0,y:0,width:80,height:10}},{pane_id:caller.pane_id,rect:{x:0,y:11,width:80,height:10}}]}};}if(a[1]==='rename')pane.label=a[3];if(a[1]==='run')return '';return JSON.stringify({result});};return {root,c,pane,calls,run};}
+for(const platform of ['linux','win32'])test(`legacy ${platform} explicit named tab preserves focus and reuses actual placement`,async()=>{
+ const f=await fixture();f.c.file=join(f.root,"雪 ’ O'Brien & config.json");try{
+  const options={run:f.run,env,platform};
+  const result=await herdrPanel(f.c,false,{...options,placement:'tab'});
+  assert.equal(result.placement,'tab');assert.equal(result.tab,'w:t2');assert.equal(result.focusChanged,false);
+  assert.deepEqual(f.calls.find(a=>a[1]==='create'),['tab','create','--workspace','w','--cwd',(platform==='win32'?win32.dirname:dirname)(f.c.file),'--label','ServiceHost','--no-focus']);
+  assert.equal(f.calls.find(a=>a[1]==='run')[3],panelCommand(f.c.file,panelCLI,process.execPath,platform));
+  const state=JSON.parse(await readFile(f.c.file+'.panel.json','utf8'));assert.equal(state.version,3);assert.equal(state.callerTab,'w:t1');assert.equal(state.stage,'submitted');
+  f.calls.length=0;
+  assert.equal((await herdrPanel(f.c,false,{...options,placement:'split'})).placement,'tab');
+  assert.equal((await herdrPanel(f.c,true,options)).placement,'tab');assert.ok(f.calls.every(a=>['current','list'].includes(a[1])));
+ }finally{await rm(f.root,{recursive:true,force:true});}
+});
+for(const platform of ['linux','win32'])for(const stage of ['create','rename','run'])test(`legacy ${platform} tab lost ${stage} stays fenced`,async()=>{
+ const f=await fixture();try{
+  const options={env,platform,placement:'tab',run:async a=>{
+   if(a[1]==='create')assert.equal(JSON.parse(await readFile(f.c.file+'.panel.json','utf8')).stage,'tab_pending');
+   const result=await f.run(a);if(a[1]===stage)throw Error('private');return result;
+  }};
+  await assert.rejects(herdrPanel(f.c,false,options),e=>!e.message.includes('private'));
+  assert.equal(JSON.parse(await readFile(f.c.file+'.panel.json','utf8')).stage,stage==='create'?'tab_pending':stage+'_pending');
+  f.calls.length=0;for(const reconnect of [false,true])await assert.rejects(herdrPanel(f.c,reconnect,{env,platform,run:f.run}));
+  assert.ok(f.calls.every(a=>a[1]==='current'));
+ }finally{await rm(f.root,{recursive:true,force:true});}
+});
+test('legacy concurrent tab and split requests share exclusion',async()=>{
+ const f=await fixture();let release;try{
+  let entered;const ready=new Promise(r=>entered=r),gate=new Promise(r=>release=r);
+  const pending=herdrPanel(f.c,false,{env,placement:'tab',run:async a=>{if(a[1]==='create'){entered();await gate;}return f.run(a);}});
+  await ready;await assert.rejects(herdrPanel(f.c,false,{env,run:f.run}),/locked/);release();await pending;
+  assert.equal(f.calls.filter(a=>a[1]==='create').length,1);assert.ok(!f.calls.some(a=>a[1]==='split'));
+ }finally{release?.();await rm(f.root,{recursive:true,force:true});}
+});
+for(const failure of ['old-tab','missing-pane','wrong-inventory'])test(`legacy invalid tab ${failure} cannot submit a command or retry`,async()=>{
+ const f=await fixture();try{
+  const run=async a=>{
+   const reply=JSON.parse((await f.run(a))||'{"result":{}}');
+   if(a[1]==='create') {
+    if(failure==='old-tab')reply.result.tab.tab_id='w:t1';
+    if(failure==='missing-pane')delete reply.result.root_pane;
+    if(failure==='wrong-inventory')f.pane.tab_id='elsewhere';
+   }
+   return JSON.stringify(reply);
+  };
+  await assert.rejects(herdrPanel(f.c,false,{env,run,placement:'tab'}));assert.ok(!f.calls.some(a=>a[1]==='run'));
+  f.calls.length=0;await assert.rejects(herdrPanel(f.c,false,{env,run:f.run,placement:'split'}));assert.deepEqual(f.calls.map(a=>a[1]),['current']);
+ }finally{await rm(f.root,{recursive:true,force:true});}
+});
+test('legacy v1 split reuse ignores tab request; invalid placement never observes or mutates',async()=>{
+ const f=await fixture();try{
+  const options={env,run:f.run};
+  await assert.rejects(herdrPanel(f.c,false,{...options,placement:'new-tab'}),/Invalid panel placement/);assert.equal(f.calls.length,0);
+  await herdrPanel(f.c,false,options);
+  assert.equal((await herdrPanel(f.c,false,{...options,placement:'tab'})).placement,'split');assert.equal(f.calls.filter(a=>a[1]==='split').length,1);
+  const state=JSON.parse(await readFile(f.c.file+'.panel.json','utf8'));state.version=1;delete state.placement;delete state.callerTab;
+  await writeFile(f.c.file+'.panel.json',JSON.stringify(state));f.calls.length=0;
+  assert.equal((await herdrPanel(f.c,false,{...options,placement:'tab'})).placement,'split');assert.deepEqual(f.calls.map(a=>a[1]),['current','list']);
+ }finally{await rm(f.root,{recursive:true,force:true});}
+});
 test('explicit non-focusing split; returned IDs, connect-only command; reuse never injects',async()=>{const f=await fixture();try{
  const result=await herdrPanel(f.c,false,{run:f.run,env});assert.equal(result.pane,'w:p2');assert.equal(result.runtimeStarted,false);
  assert.ok(f.calls.find(a=>a[1]==='split').includes('--no-focus'));assert.equal(f.calls.find(a=>a[1]==='run')[2],'w:p2');assert.equal(f.calls.find(a=>a[1]==='run')[3],panelCommand(f.c.file));
@@ -62,7 +121,7 @@ test('mock Windows Herdr transport opens once with exact bundled Node argv and r
  try{
   const options={run:f.run,env,platform:'win32'};
   const result=await herdrPanel(f.c,false,options);assert.equal(result.runtimeStarted,false);assert.match(result.outcome,/readiness not verified/);
-  assert.deepEqual(f.calls.map(a=>a[1]),['current','list','split','list','rename','run']);
+  assert.deepEqual(f.calls.map(a=>a[1]),['current','list','split','list','swap','rename','run']);
   const split=f.calls.find(a=>a[1]==='split');assert.deepEqual(split,['pane','split','--pane','w:p1','--direction','down','--cwd',win32.dirname(f.c.file),'--no-focus']);
   const run=f.calls.find(a=>a[1]==='run');assert.equal(run.length,4);assert.equal(run[2],'w:p2');
   assert.deepEqual(windowsArgv(run[3]),[process.execPath,panelCLI,'panel','--connect-only','--config',f.c.file]);
@@ -77,6 +136,25 @@ for(const stage of ['split','rename','run'])test(`Windows lost ${stage} acknowle
   await assert.rejects(herdrPanel(f.c,false,options),e=>!e.message.includes('private stderr'));
   assert.equal(JSON.parse(await readFile(f.c.file+'.panel.json','utf8')).stage,stage+'_pending');
   for(const reconnect of [false,true]){f.calls.length=0;await assert.rejects(herdrPanel(f.c,reconnect,{run:f.run,env,platform:'win32'}));assert.deepEqual(f.calls.map(a=>a[1]),['current']);}
+ }finally{await rm(f.root,{recursive:true,force:true});}
+});
+for(const failure of ['lost','unchanged','wrong-target','below'])test(`legacy exact-ID above reorder ${failure} stays fenced`,async()=>{
+ const f=await fixture();try{
+  const run=async a=>{
+   if(a[1]==='swap')assert.equal(JSON.parse(await readFile(f.c.file+'.panel.json','utf8')).stage,'reorder_pending');
+   const raw=await f.run(a);if(a[1]!=='swap')return raw;
+   if(failure==='lost')throw Error('private');
+   const reply=JSON.parse(raw);
+   if(failure==='unchanged')reply.result.changed=false;
+   if(failure==='wrong-target')reply.result.target_pane_id='unrelated';
+   if(failure==='below')reply.result.layout.panes[0].rect.y=30;
+   return JSON.stringify(reply);
+  };
+  await assert.rejects(herdrPanel(f.c,false,{env,run}),e=>!e.message.includes('private'));
+  assert.equal(JSON.parse(await readFile(f.c.file+'.panel.json','utf8')).stage,'reorder_pending');
+  assert.ok(!f.calls.some(a=>a[1]==='run'));
+  f.calls.length=0;for(const reconnect of [false,true])await assert.rejects(herdrPanel(f.c,reconnect,{env,run:f.run}));
+  assert.ok(f.calls.every(a=>a[1]==='current'));
  }finally{await rm(f.root,{recursive:true,force:true});}
 });
 test('native Windows PowerShell transport runs only a disposable Node argv recorder',{skip:process.platform!=='win32'},async()=>{

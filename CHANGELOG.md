@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.6.0
+
+- Add PageUp/PageDown, Home and End log navigation with per-service anchored history, live/paused/pruned indicators, and a 500-row buffer. Incoming output does not displace paused history. Ctrl+L clears only the view and resumes follow; log files remain unchanged.
+
+- Make explicit `servicehost_host_start` start/connect the runtime AND open/reuse its visible Herdr panel, with optional split/tab placement (default split). Registration/session start/reload remain inert and services remain individually explicit. Panel failures return structured runtime status, authoritative config/port identity and a sanitized panel error; no runtime rollback, destructive stop-all or blind retry. Standalone CLI `up` remains headless.
+- Fix same-process extension upgrades by shipping a complete explicit TypeScript import graph for Pi/Jiti while preserving the compiled standalone CLI. Add actual-loader reload regressions and [upgrade guidance](docs/extension-loading.md): fully exit/restart Pi once when upgrading from an already-loaded compiled entry; subsequent TS-entry upgrades can use rediscovery and `/reload`.
+
+- Add creation-only optional `placement: "split" | "tab"` to `servicehost_panel_open`, default split above the caller. Both backends use their supported down split followed by an exact-ID reorder: one version-checked core document write on app/core, explicit source/target pane swap on legacy. Top placement is verified, with pending fences and no mutation retry on failure. Tab creates an explicitly named ServiceHost tab in the caller's workspace/space with project cwd. Existing displays are verified/reused in place and return actual recorded placement; reconnect remains read-only with no placement option.
+- Preserve legacy Linux/Windows non-focus commands and encoded PowerShell quoting. App/core split keeps direct argv; tab uses the app 0.1.13 shell wrapper, verified exactly, and selects the new tab/space. No focused-default targeting or focus restoration.
+- Version-3 records retain placement and caller/target tabs, with existing v1/v2 split reuse and unchanged locks/pending uncertainty fences. No runtime startup by the display adapters, migration, duplicate retry or lifecycle redesign.
+- Add mocked Linux/Windows split/tab, target/focus/argv/cwd, failure, concurrency, compatibility, schema and installed-package checks. Contracts inspected through installed read-only help/skills and tagged source; no live display mutations or native Windows validation.
+
 ## 0.5.0
 
 - Support new Herdr app/core environments selected by explicit HC caller/socket identity, while preserving the v0.4.1 legacy Linux and Windows adapters. Mixed/partial identities fail; there is no automatic backend fallback or record migration.

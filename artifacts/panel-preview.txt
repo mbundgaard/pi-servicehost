@@ -28,7 +28,7 @@ err  Optional cache is not configured
 
 
 ────────────────────────────────────────────────────────────────────────────────────────────────────
-F1 info F2 next F3 stop F4 restart F6 list ^L clear q quit                                    v0.2.0
+F1 info F2 next F3 stop F4 restart F6 list ^L clear PgUp/PgDn End q quit                 live v0.2.0
 
 80 × 24
 > api running :3000
@@ -54,7 +54,7 @@ err  Optional cache is not configured
 
 
 ────────────────────────────────────────────────────────────────────────────────
-F1 info F2 next F3 stop F4 restart F6 list ^L clear q quit                v0.2.0
+F1 info F2 next F3 stop F4 restart PgUp/PgDn End                     live v0.2.0
 
 50 × 16
 > api running :3000
@@ -72,7 +72,7 @@ err  Optional cache is not configured
 
 
 ──────────────────────────────────────────────────
-F1 info F2 next F3 toggle F6 list q quit    v0.2.0
+F1 info F2 next PgUp/PgDn End          live v0.2.0
 
 32 × 8
 > api running :3000
@@ -82,7 +82,7 @@ F1 info F2 next F3 toggle F6 list q quit    v0.2.0
 out  仕事を開始 · café
 err  Optional cache is not conf…
 ────────────────────────────────
-F1 info F2 next q quit    v0.2.0
+F1 info F2 next      live v0.2.0
 
 Pending action / 80 × 12
 > api running :3000
@@ -96,7 +96,7 @@ err  Optional cache is not configured
 
 Pending: restart api · do not retry
 ────────────────────────────────────────────────────────────────────────────────
-F1 info F2 next F3 stop F4 restart F6 list ^L clear q quit                v0.2.0
+F1 info F2 next F3 stop F4 restart PgUp/PgDn End                     live v0.2.0
 
 Disconnected / 50 × 16
 > api running :3000
@@ -114,22 +114,22 @@ err  Optional cache is not configured
 
 Disconnected; cached output. Controls disabled.
 ──────────────────────────────────────────────────
-F1 info F2 next F3 toggle F6 list q quit    v0.2.0
+F1 info F2 next PgUp/PgDn End          live v0.2.0
 
 Scrolled key help / 50 × 16
 F3 start/stop selected F4 restart selected
+PgUp/PgDn scroll logs Home oldest End live follow
+History stays put on new output. PgDn at newest
+resumes live.
+Up to 500 buffered lines per service; older log
+files unchanged.
+Paused (pruned): older buffered lines expired;
+view clamped.
+Restart/truncation adds a marker; history and
+paused view remain.
+Ctrl+L clears history and resumes live. Up to 8
+service views cached.
 F6 hide/show services Ctrl+L clear view only
-F1 / Esc close info q / Ctrl+Q quit UI only
-F5 batch operations are not enabled.
-Logs may contain secrets. No cross-stream time
-order.
-Closing this panel leaves services running.
-Message: Disconnected. Retrying reads; controls
-disabled.
-
-
-
-
 Disconnected; cached output. Controls disabled.
 ──────────────────────────────────────────────────
 ↑↓ scroll F1 back q quit                    v0.2.0
@@ -144,7 +144,7 @@ Waiting for service status…
 
 Connecting to runtime…
 ──────────────────────────────────────────────────
-F1 info F2 next F3 toggle F6 list q quit    v0.2.0
+F1 info F2 next PgUp/PgDn End          live v0.2.0
 
 Empty / 50 × 10
   No services configured. Edit ServiceHost.json.
@@ -156,4 +156,4 @@ Add a service to the project configuration.
 
 
 ──────────────────────────────────────────────────
-F1 info F2 next F3 toggle F6 list q quit    v0.2.0
+F1 info F2 next PgUp/PgDn End          live v0.2.0

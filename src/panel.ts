@@ -14,6 +14,31 @@ export class LogBuffer {
   streams:Record<string,StreamState>={stdout:{},stderr:{}};
   generation=0;
   cleared=false;
+  // Absolute row positions survive appends; undefined means live follow.
+  private firstRow=0;
+  private top?:number;
+  private viewport=1;
+  pruned=false;
+  get following(){return this.top===undefined;}
+  private clamp() {
+    if(this.top===undefined)return;
+    if(this.top<this.firstRow){this.top=this.firstRow;this.pruned=true;}
+    this.top=Math.min(this.top,this.firstRow+Math.max(0,this.rows.length-this.viewport));
+  }
+  view(height:number):LogRow[] {
+    this.viewport=Math.max(1,height);this.clamp();
+    const start=this.top===undefined?Math.max(0,this.rows.length-this.viewport):this.top-this.firstRow;
+    return height>0?this.rows.slice(start,start+height):[];
+  }
+  scroll(key:string) {
+    if(key==='end'){this.top=undefined;this.pruned=false;return;}
+    const last=this.firstRow+Math.max(0,this.rows.length-this.viewport);
+    if(key==='home'){this.top=this.firstRow;this.pruned=false;return;}
+    const step=Math.max(1,this.viewport-1);
+    this.top=Math.max(this.firstRow,Math.min(last,(this.top??last)+(key==='pageup'?-step:step)));
+    // PageDown at the newest page resumes follow, like End.
+    if(key==='pagedown'&&this.top===last){this.top=undefined;this.pruned=false;}
+  }
   append(stream:string,result:{text:string;cursor:unknown;reset?:boolean}) {
     const state=this.streams[stream];
     state.cursor=result.cursor;
@@ -22,15 +47,16 @@ export class LogBuffer {
     // Bound even a newline-free stream. Never retain child escape sequences.
     const pieces=terminalText(result.text,true).split('\n');
     for(let i=0;i<pieces.length;i++) {
-      if(pieces[i]) {
+      if(pieces[i] || i<pieces.length-1) {
         if(!state.partial || !this.rows.includes(state.partial)) {state.partial={stream,text:''};this.rows.push(state.partial);}
         state.partial.text=(state.partial.text+pieces[i]).slice(-4096);
       }
       if(i<pieces.length-1)state.partial=undefined;
     }
-    this.rows=this.rows.slice(-500);
+    const removed=Math.max(0,this.rows.length-500);
+    this.firstRow+=removed;this.rows=this.rows.slice(-500);this.clamp();
   }
-  clear() {this.rows=[];for(const s of Object.values(this.streams)){s.partial=undefined;if(s.cursor===undefined)s.skipInitial=true;}this.generation++;this.cleared=true;}
+  clear() {this.rows=[];this.firstRow=0;this.top=undefined;this.pruned=false;for(const s of Object.values(this.streams)){s.partial=undefined;if(s.cursor===undefined)s.skipInitial=true;}this.generation++;this.cleared=true;}
 }
 
 // Strip complete ANSI sequences, then neutralize remaining controls (including
@@ -95,6 +121,12 @@ function infoLines(state:PanelState):string[] {
     `Ownership: ${s?.ownership??'not reported'}   Scope: ${s?.scope??'not reported'}`,
     'Readiness and last exit do not grant control.',
     '↑/↓ select service   F2 next (wraps)', 'F3 start/stop selected   F4 restart selected',
+    'PgUp/PgDn scroll logs   Home oldest   End live follow',
+    'History stays put on new output. PgDn at newest resumes live.',
+    'Up to 500 buffered lines per service; older log files unchanged.',
+    'Paused (pruned): older buffered lines expired; view clamped.',
+    'Restart/truncation adds a marker; history and paused view remain.',
+    'Ctrl+L clears history and resumes live. Up to 8 service views cached.',
     'F6 hide/show services   Ctrl+L clear view only', 'F1 / Esc close info   q / Ctrl+Q quit UI only',
     'F5 batch operations are not enabled.', 'Logs may contain secrets. No cross-stream time order.',
     'Closing this panel leaves services running.', `Message: ${state.notice}`];
@@ -132,7 +164,7 @@ export function renderPanel(state:PanelState,width:number,height:number,version:
     }
     const room=Math.max(0,contentEnd-rows.length);
     const buffer=s?state.logs.get(s.name):undefined;
-    const lines=room?buffer?.rows.slice(-room)??[]:[];
+    const lines=buffer?.view(room)??[];
     if(!lines.length&&room) add(!state.loaded?'Waiting for service status…':!s?'Add a service to the project configuration.':s.output!=='available'?'No output for this runtime. F1 for service info.':buffer?.cleared?'View cleared. Waiting for new output…':'Waiting for stdout / stderr…','90');
     else for(const line of lines) add(`${line.stream==='stderr'?'err':line.stream==='stdout'?'out':' · '}  ${line.text}`,line.stream==='stderr'?'33':line.stream==='sys'?'90':'');
   }
@@ -140,8 +172,10 @@ export function renderPanel(state:PanelState,width:number,height:number,version:
   for(const line of notices)add(line,'33');
   add('─'.repeat(width),'90');
   const toggle=s?.state==='running'?'stop':'start';
-  const keys=state.info?'↑↓ scroll F1 back q quit':width>=76?`F1 info F2 next F3 ${toggle} F4 restart F6 list ^L clear q quit`:width>=48?'F1 info F2 next F3 toggle F6 list q quit':'F1 info F2 next q quit';
-  add(footer(keys,`v${version}`,width),'7');
+  const buffer=s?state.logs.get(s.name):undefined;
+  const mode=buffer&&!buffer.following?`paused${buffer.pruned?' (pruned)':''}`:'live';
+  const keys=state.info?'↑↓ scroll F1 back q quit':width>=100?`F1 info F2 next F3 ${toggle} F4 restart F6 list ^L clear PgUp/PgDn End q quit`:width>=76?`F1 info F2 next F3 ${toggle} F4 restart PgUp/PgDn End`:width>=48?'F1 info F2 next PgUp/PgDn End':'F1 info F2 next';
+  add(footer(keys,`${state.info?'':mode+' '}v${version}`,width),'7');
   return rows.slice(0,height);
 }
 export interface PanelKey {name?:string;ctrl?:boolean;meta?:boolean;shift?:boolean}
@@ -152,6 +186,10 @@ export function handleKey(state:PanelState,key:PanelKey):Intent {
   if(state.info){
     if(key.name==='up')state.infoOffset=Math.max(0,(state.infoOffset??0)-1);
     if(key.name==='down')state.infoOffset=Math.min(infoLines(state).length-1,(state.infoOffset??0)+1);
+    return;
+  }
+  if(['pageup','pagedown','home','end'].includes(key.name??'')) {
+    if(state.selected)logBuffer(state,state.selected).scroll(key.name!);
     return;
   }
   if(key.name==='f6'){state.showServices=!state.showServices;return;}
