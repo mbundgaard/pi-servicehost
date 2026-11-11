@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.2
+
+- Fix core-connected Herdr displays when no local `herdr-app` socket/home exists. New displays use the caller's verified machine-owned layout, direct parentless terminal argv and one version-checked layout registration for above split or named ServiceHost tab. Remote viewers consume the same document; no local app acknowledgement is required. Results distinguish persisted display registration from unobserved viewer visibility; focus remains viewer-private.
+- Preflight display identity/capabilities before starting a runtime. Known unsupported/missing mappings leave runtime/services untouched; post-start panel failures retain structured partial-runtime reporting. Launch/CAS uncertainty remains persistently fenced without duplicate retries, backend fallback or cleanup. Existing local-app/legacy records retain their adapter; service launching and ownership are unchanged.
+- Add no-local-app Linux and mocked Windows named-pipe tests for placement, direct argv/cwd/lifetime, caller mapping, uncertainty, reuse and concurrency; retain original adapter regressions. Native Windows and live viewer validation remain separate permission-gated work.
+
 ## 0.6.1
 
 First npm release of the changes below. The 0.6.0 GitHub tag failed Node 24 validation and was not published. The runtime-loss logging test now waits for actual heartbeat output with a bounded deadline instead of assuming a 300 ms scheduler window; its disposable fixture lifetime includes that observation budget.

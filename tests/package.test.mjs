@@ -23,8 +23,8 @@ test('package has a standalone compiled CLI and reloadable TS extension; exclude
  const [pkg]=JSON.parse(output);const files=pkg.files.map(f=>f.path);
  const expected=['package.json','README.md','LICENSE','CHANGELOG.md','ServiceHost.example.json',
   'docs/design.md','docs/panel-design.md','docs/validation.md','docs/windows-lifecycle.md','docs/release.md','docs/pi-integration.md','docs/extension-loading.md','skills/servicehost/SKILL.md',
-  ...['cli','client','config','config-store','integration','herdr','herdr-app','extension','runtime','readiness','logs','watch','panel','platform','linux-group','linux-group-helper','windows-launch'].map(n=>`dist/${n}.js`),
-  ...['client','config','config-store','integration','herdr','herdr-app','extension','runtime','readiness','logs','watch','platform','linux-group','windows-launch'].map(n=>`dist/${n}.ts`)];
+  ...['cli','client','config','config-store','integration','herdr','herdr-app','herdr-core-panel','extension','runtime','readiness','logs','watch','panel','platform','linux-group','linux-group-helper','windows-launch'].map(n=>`dist/${n}.js`),
+  ...['client','config','config-store','integration','herdr','herdr-app','herdr-core-panel','extension','runtime','readiness','logs','watch','platform','linux-group','windows-launch'].map(n=>`dist/${n}.ts`)];
  assert.deepEqual(files.sort(),expected.sort(),'Only reviewed files may ship; no references, build scripts, tests, secrets or state');
  const p=JSON.parse(readFileSync('package.json','utf8'));assert.equal(p.bin['pi-servicehost'],'dist/cli.js');assert.ok(!p.dependencies);assert.deepEqual(p.pi,{extensions:['./dist/extension.ts'],skills:['./skills']});assert.deepEqual(p.peerDependencies,{'@earendil-works/pi-coding-agent':'*',typebox:'*'});
  assert.equal(p.name,'@comput/pi-servicehost');assert.equal(p.license,'MIT');
@@ -59,7 +59,7 @@ test('packed artifact installs without scripts and CLI lifecycle runs outside ch
     const open=tools.find(t=>t.name==='servicehost_panel_open').parameters;
     if(JSON.stringify(open.properties.placement.enum)!==JSON.stringify(['split','tab'])||open.required?.includes('placement')||tools.find(t=>t.name==='servicehost_panel_reconnect').parameters.properties.placement)throw Error('Invalid placement schema');
     const start=tools.find(t=>t.name==='servicehost_host_start');
-    if(JSON.stringify(start.parameters.properties.placement.enum)!==JSON.stringify(['split','tab'])||start.parameters.required?.includes('placement')||!start.description.includes('visible Herdr panel'))throw Error('Invalid visible host start contract');
+    if(JSON.stringify(start.parameters.properties.placement.enum)!==JSON.stringify(['split','tab'])||start.parameters.required?.includes('placement')||!start.description.includes('persisted display placement'))throw Error('Invalid visible host start contract');
     console.log(tools.length);`;
   assert.equal(execFileSync(process.execPath,['--input-type=module','-e',probe],{cwd:dir,encoding:'utf8',timeout:10000}).trim(),'16');
   const directProbe=`import {directPanelArgv} from ${JSON.stringify(pathToFileURL(join(packageRoot,'dist','herdr-app.js')).href)};console.log(JSON.stringify(directPanelArgv('C:/雪 config.json',${JSON.stringify(installed)})));`;

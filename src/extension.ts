@@ -10,7 +10,7 @@ const descriptions:Record<string,string>={
   config_validate:'Validate existing configuration without starting anything; returns safe metadata.',
   config_create:'Create a validated configuration with an explicit authoritative apiPort. Never overwrites an existing config. Inspect the project first; use credential placeholders, not secrets.',
   config_update:'Atomically replace configuration using the inspected revision. Refuses active/unreconciled runtimes and concurrent changes. Editing apiPort never moves a listener.',
-  host_start:'Explicitly start/connect the independent runtime at configured apiPort AND open/reuse its visible Herdr panel. Optional placement split (default, above caller) or tab applies only to creation. No services auto-start, port fallback or process killing. Panel failure reports runtime status and config identity as an error; inspect before retrying.',
+  host_start:'Preflight display support, then explicitly start/connect the independent runtime at configured apiPort AND open/register its Herdr panel. Core-connected success is persisted display placement, not observed viewer visibility; no local app required. Optional placement split (default, above caller) or tab applies only to creation. No services auto-start, port fallback or process killing. Panel failure reports runtime status and config identity as an error; inspect before retrying.',
   host_status:'Verify the runtime identity on configured apiPort. No launch or fallback.',
   host_shutdown:'Request runtime shutdown; fails while owned services/groups remain. Stop each service first. Uncertain outcomes must not be blindly retried.',
   service_status:'Inspect one hosted service without args, env or logs.',
@@ -20,8 +20,8 @@ const descriptions:Record<string,string>={
   service_wait:'Wait at most timeoutMs (100–30000) for startup readiness to leave pending. Not continuous health, no lifecycle changes.',
   service_logs:'Inspect bounded logs. includeText:true explicitly acknowledges potentially sensitive application output entering model context; use only for authorized log diagnosis. No credential files are read and no secret-free guarantee. Default metadata only.',
   service_discover:'Inspect configured TCP listener identities; observation grants no stop authority or automatic adoption.',
-  panel_open:'Explicitly open a Linux/Windows Herdr display for an already-running host, or verify its record. Placement split (default) splits above the caller; tab creates a named ServiceHost tab in its space/workspace. Existing records are reused in place regardless of placement. New app/core changes focus; legacy preserves focus. No runtime auto-start or backend fallback. Uncertain launches need manual inspection.',
-  panel_reconnect:'Verify recorded Linux/Windows Herdr backend, display identity and runtime connection, without shell input, focus changes, replacement or runtime launch. Display presence and launch argv are not foreground process readiness.',
+  panel_open:'Explicitly open a Linux/Windows Herdr display for an already-running host, or verify its record. Placement split (default) splits above the caller; tab creates a named ServiceHost tab in its space/workspace. Existing records are reused in place regardless of placement. New core-connected displays register shared layout without changing viewer focus; registration is not observed visibility. No local app required. No runtime auto-start or backend fallback. Uncertain launches need manual inspection.',
+  panel_reconnect:'Verify recorded Linux/Windows Herdr backend, display identity and runtime connection, without shell input, focus changes, replacement or runtime launch. Shared-layout registration and launch argv do not prove viewer visibility or foreground process readiness.',
 };
 export default function extension(pi:ExtensionAPI) {
   for(const [operation,description] of Object.entries(descriptions)) {

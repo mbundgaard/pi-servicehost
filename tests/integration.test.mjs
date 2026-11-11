@@ -81,7 +81,7 @@ test('conflicting port never falls back; failed bind releases only its own guard
  conflict.listen(raw.apiPort,'127.0.0.1');await once(conflict,'listening');
  try {
   const first=await saveConfig(file,raw);
-  await assert.rejects(perform('host_start',{},root),/conflicting/);
+  await assert.rejects(perform('host_start',{},root,undefined,async()=>({})),/conflicting/);
   await assert.rejects(perform('host_status',{},root),e=>!e.message.includes('sensitive-remote-error'));
   for(const placement of ['split','tab'])await assert.rejects(perform('panel_open',{placement},root),/Runtime request/);
   assert.equal(await exists(file+'.panel.json'),false);
@@ -92,11 +92,30 @@ test('conflicting port never falls back; failed bind releases only its own guard
  }finally{await new Promise(r=>conflict.close(r));await rm(root,{recursive:true,force:true});}
 });
 
+test('display preflight failure prevents new runtime and preserves existing service state',async()=>{
+ const {root,file,raw}=await fixture();let runtime;let calls=0;
+ const unavailable=async(c,reconnect,options)=>{calls++;assert.equal(options.preflight,true);throw Error('private mapping');};
+ raw.services=[{name:'fixture',command:process.execPath,args:['-e','setInterval(()=>{},1000)'],workingDirectory:'.'}];
+ try {
+  await saveConfig(file,raw);
+  for(const existing of [false,true]) {
+   if(existing)runtime=await serve(file);
+   await assert.rejects(perform('host_start',{},root,undefined,unavailable),e=>{
+    const r=JSON.parse(e.message);assert.equal(r.error,'host_start_panel_preflight_failed');assert.equal(r.runtimeStarted,false);assert.equal(r.runtimeRunning,existing?true:null);assert.doesNotMatch(e.message,/private mapping/);return true;
+   });
+   assert.equal(await exists(file+'.runtime-lock'),existing);assert.equal(await exists(file+'.panel.json'),false);
+   if(existing)assert.equal((await perform('service_status',{name:'fixture'},root)).state,'stopped');
+  }
+  assert.equal(calls,2);
+ }finally{if(runtime)await closed(runtime);await rm(root,{recursive:true,force:true});}
+});
+
 test('host start panel failure is structured, preserves runtime, and never exposes adapter secrets',async()=>{
  const {root,file,raw}=await fixture();let started=false;let calls=0;
  try {
   await saveConfig(file,raw);
   await assert.rejects(perform('host_start',{placement:'tab'},root,undefined,async(c,reconnect,options)=>{
+   if(options.preflight)return {};
    started=true;calls++;assert.equal(options.placement,'tab');assert.equal(reconnect,false);
    assert.equal((await request(c,{action:'ping'})).apiPort,raw.apiPort);
    throw Error('sensitive-adapter-secret');
@@ -118,7 +137,7 @@ test('host start panel failure is structured, preserves runtime, and never expos
    const result=await tools.find(t=>t.name==='servicehost_host_start').execute('id',{},undefined,undefined,{cwd:root});
    assert.equal(result.isError,true);
    const error=JSON.parse(result.content[0].text);
-   assert.equal(error.runtimeRunning,true);assert.equal(error.existing,true);assert.equal(error.runtimeStarted,false);
+   assert.equal(error.runtimeRunning,true);assert.equal(error.error,'host_start_panel_preflight_failed');assert.equal(error.runtimeStarted,false);
    assert.equal(error.apiPort,raw.apiPort);assert.equal(error.configPath,file);assert.ok(error.panel.error);
    assert.equal(await exists(file+'.panel.json'),false);
   }finally{keys.forEach((k,i)=>{if(saved[i]===undefined)delete process.env[k];else process.env[k]=saved[i];});}
@@ -133,7 +152,8 @@ test('panel failure reports unknown rather than falsely asserting a lost runtime
  const {root,file,raw}=await fixture();let runtime;
  try {
   await saveConfig(file,raw);runtime=await serve(file);
-  await assert.rejects(perform('host_start',{},root,undefined,async()=>{
+  await assert.rejects(perform('host_start',{},root,undefined,async(c,reconnect,options)=>{
+   if(options.preflight)return {};
    await closed(runtime);runtime=undefined;throw Error('private-panel-error');
   }),e=>{
    const result=JSON.parse(e.message);assert.equal(result.runtimeRunning,null);
@@ -155,10 +175,10 @@ test('detached tools lifecycle uses packaged runtime; logs withheld; bounded rea
   assert.equal(first.existing,false);assert.equal(first.panel.pane,'fixture-pane');
   const again=await perform('host_start',{placement:'tab'},root,undefined,mockPanel);
   assert.equal(again.existing,true);assert.equal(again.panel.placement,'split','adapter owns existing-display placement');
-  assert.deepEqual(panelCalls,[{project:first.project,apiPort:raw.apiPort,reconnect:false,placement:'split'},{project:first.project,apiPort:raw.apiPort,reconnect:false,placement:'tab'}]);
+  assert.deepEqual(panelCalls,['split','tab'].flatMap(placement=>[{project:first.project,apiPort:raw.apiPort,reconnect:false,placement,preflight:true},{project:first.project,apiPort:raw.apiPort,reconnect:false,placement}]));
   assert.equal((await perform('service_status',{name:'fixture'},root)).state,'stopped');
   await perform('service_start',{name:'fixture'},root);
-  await assert.rejects(perform('host_start',{},root,undefined,async()=>{throw Error('sensitive-panel-log');}),e=>{
+  await assert.rejects(perform('host_start',{},root,undefined,async(c,reconnect,options)=>{if(options.preflight)return {};throw Error('sensitive-panel-log');}),e=>{
    const error=JSON.parse(e.message);assert.equal(error.runtimeRunning,true);assert.equal(error.existing,true);
    assert.doesNotMatch(e.message,/sensitive-panel-log|sensitive-log-value/);return true;
   });

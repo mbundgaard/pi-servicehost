@@ -79,6 +79,7 @@ async function legacyPanel(c:Config,reconnect:boolean,options:AppOptions&{run?:R
       demand(!reconnect,'No recorded panel; explicitly open a display first');
       await access(panelCLI);
       const before=await inventory();
+      if(options.preflight)return {backend:'legacy',outcome:'caller and inventory verified; no mutation',runtimeStarted:false};
       state={version:3,backend:'legacy',placement,callerTab:caller.tab_id,project:c.id,workspace:caller.workspace_id,marker:'ServiceHost '+randomUUID(),stage:placement==='tab'?'tab_pending':'split_pending'};
       await save();
       const cwd=(platform==='win32'?win32.dirname:dirname)(c.file);

@@ -6,6 +6,7 @@ import { join, isAbsolute, dirname, win32, basename } from 'node:path';
 import { homedir } from 'node:os';
 import { randomUUID } from 'node:crypto';
 import { exclusive } from './config-store.js';
+import { corePanel } from './herdr-core-panel.js';
 import { demand, SafeError, type Config } from './config.js';
 
 type CoreMethod='hello'|'terminal.get'|'doc.get';
@@ -13,6 +14,9 @@ export type CoreRead=(method:CoreMethod,params:Record<string,unknown>)=>Promise<
 export type Placement='split'|'tab';
 export interface AppOptions {
   placement?:Placement;
+  /** Read-only capability/identity check before starting the host. */
+  preflight?:boolean;
+  coreRun?:(params:Record<string,unknown>)=>Promise<any>;
   appRun?:(args:string[])=>Promise<string>;
   coreRead?:CoreRead;
   coreSet?:(params:Record<string,unknown>)=>Promise<any>;
@@ -27,7 +31,7 @@ export function readCore(socket:string,method:CoreMethod,params:Record<string,un
   return coreRequest(socket,method,params);
 }
 // Only the creation path may issue one CAS document write. Reconnect stays read-only.
-function coreRequest(socket:string,method:CoreMethod|'doc.set',params:Record<string,unknown>):Promise<any> {
+export function coreRequest(socket:string,method:CoreMethod|'doc.set'|'terminal.run',params:Record<string,unknown>):Promise<any> {
   return new Promise((resolve,reject)=>{
     const stream=createConnection(socket);
     let bytes=0, data='';
@@ -143,6 +147,16 @@ export function tabPanelArgv(argv:string[],shell:string,platform:string):string[
 }
 
 export async function appPanel(c:Config,reconnect:boolean,cli:string,options:AppOptions={}) {
+  // New displays use the machine-owned document, including when the viewer is
+  // on another machine. Retain the old adapter for its existing pinned records.
+  let record:any;
+  try {record=JSON.parse(await readFile(c.file+'.panel.json','utf8'));}
+  catch(e:any) {if(e.code!=='ENOENT')throw new SafeError('Invalid panel record; inspect before recovery');}
+  if(record?.backend==='app-core'||(!record&&options.appRun))return localAppPanel(c,reconnect,cli,options);
+  return corePanel(c,reconnect,cli,options);
+}
+
+async function localAppPanel(c:Config,reconnect:boolean,cli:string,options:AppOptions={}) {
   const placement=options.placement??'split';
   demand(placement==='split'||placement==='tab','Invalid panel placement');
   demand(!reconnect||options.placement===undefined,'Reconnect does not accept placement');
@@ -203,6 +217,7 @@ export async function appPanel(c:Config,reconnect:boolean,cli:string,options:App
       const required=placement==='tab'?['space','name','folder','argv']:['direction','pane','argv'];
       demand(Array.isArray(commands)&&commands.some(x=>x.name===command&&Array.isArray(x.args)&&required.every(n=>x.args.some((a:any)=>a.name===n))),'Required explicit placement API unavailable');
       demand(await identity()===coreID,'Core changed before launch');
+      if(options.preflight)return {backend:'app-core',outcome:'display preflight verified; no mutation',runtimeStarted:false};
       // Split retains direct argv and inherited cwd. tab.new wraps argv in the
       // app's shell; verify that exact wrapper and explicit project folder.
       state={version:3,placement,callerTab:caller.tab,backend:'app-core',project:c.id,appHome,socket,core:coreID,space:caller.space,tab:caller.tab,callerPane:caller.pane,stage:placement==='tab'?'tab_pending':'split_pending'};

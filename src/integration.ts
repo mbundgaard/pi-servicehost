@@ -19,6 +19,19 @@ export async function perform(operation:string, p:any, cwd:string, signal?:Abort
   }
   const c=await loadConfig(path);
   if(operation==='host_start') {
+    try {await panel(c,false,{placement:p.placement??'split',preflight:true});}
+    catch {
+      let runtimeRunning:boolean|null=null;
+      try {await request(c,{action:'ping'});runtimeRunning=true;} catch { /* no runtime mutation */ }
+      throw new SafeError(JSON.stringify({
+        error:'host_start_panel_preflight_failed',runtimeRunning,runtimeStarted:false,
+        runtimeStatus:runtimeRunning?'identity-verified':'unconfirmed',
+        project:c.id,configPath:c.file,apiPort:c.apiPort,
+        panel:{error:'Herdr display preflight failed: caller/core mapping, supported layout APIs or recorded display unavailable. Inspect <config>.panel.json and caller endpoint; no launch attempted'},
+        notice:'Runtime and services were not changed. No display launch attempted.',
+      }));
+    }
+    signal?.throwIfAborted();
     const runtime=await up(c);
     try {
       const display=await panel(c,false,{placement:p.placement??'split'});
